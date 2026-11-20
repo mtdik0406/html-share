@@ -2,6 +2,7 @@
   "name": "html-share",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
   "description": "AI が作った HTML を自分の AWS に置き、署名付き URL で配る",
   "type": "module",
   "packageManager": "pnpm@12.21.0",

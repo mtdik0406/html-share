@@ -82,3 +82,7 @@ pnpm exec cdk destroy   # バケットの中身ごと消える
 ## 謝辞
 
 構成は [minorun365/html-share](https://github.com/minorun365/html-share)（Apache-2.0）を参考にした。コードは独自に書いている。
+
+## ライセンス
+
+[MIT](LICENSE)
