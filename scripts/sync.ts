@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
@@ -41,6 +41,11 @@ await runCli(async () => {
   }
 
   const configPath = resolve(values.config ?? DEFAULT_CONFIG_PATH);
+  if (!existsSync(configPath)) {
+    throw new Error(
+      `設定ファイルがありません: ${configPath}\nhtml-share.config.example.json を写して作ってください`,
+    );
+  }
   const config = parseConfig(readFileSync(configPath, "utf8"), dirname(configPath), homedir());
 
   // 一覧を読んでから消すまでの間に、別の同期が割り込まないようにする。

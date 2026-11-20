@@ -61,7 +61,6 @@ const URL_ATTRIBUTES: Readonly<Record<string, readonly string[]>> = {
   track: ["src"],
   input: ["src"],
   image: ["href", "xlink:href"],
-  use: ["href", "xlink:href"],
 };
 const SRCSET_ELEMENTS = new Set(["img", "source"]);
 const EMBEDDED_LINK_RELS = new Set(["stylesheet", "icon", "apple-touch-icon"]);
@@ -81,7 +80,13 @@ export function embedPage(
   roots: readonly string[],
   limits: EmbedLimits = DEFAULT_LIMITS,
 ): EmbedResult {
-  const realRoots = roots.map((root) => realpathSync(root));
+  const realRoots = roots.map((root) => {
+    try {
+      return realpathSync(root);
+    } catch {
+      throw new Error(`roots のディレクトリが見つかりません: ${root}`);
+    }
+  });
   const ctx: Context = { roots: realRoots, limits, warnings: [] };
 
   const source = resolveInsideRoots(sourcePath, ctx);
@@ -177,6 +182,15 @@ function rewriteAttribute(
       .split(/\s+/);
     if (!rels.some((rel) => EMBEDDED_LINK_RELS.has(rel))) return undefined;
     return rewriteUrl(value, baseDir, ctx);
+  }
+  if (tag === "use" && (name === "href" || name === "xlink:href")) {
+    // Chrome は <use> の data: URL を描画しない。別ファイルのままでは署名がなく 403 になるので、止める。
+    if (classifyReference(value).kind === "local") {
+      throw new Error(
+        `<use> は別ファイルの SVG を参照できません。SVG をページに直接書いてください: ${value}`,
+      );
+    }
+    return undefined;
   }
   if (URL_ATTRIBUTES[tag]?.includes(name)) return rewriteUrl(value, baseDir, ctx);
   return undefined;

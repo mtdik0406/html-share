@@ -31,6 +31,11 @@ describe("acquireLock", () => {
     release();
   });
 
+  it("親のディレクトリが無くても取れる", () => {
+    const release = acquireLock(join(base, "missing", "sync.lock"));
+    release();
+  });
+
   it("解放した後は、また取れる", () => {
     acquireLock(lockDir)();
     const release = acquireLock(lockDir);

@@ -1,5 +1,5 @@
 import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 
 /**
  * 同期を 1 プロセスに絞る。2 つが重なると、片方が置いたページを、もう片方が古い一覧のまま消しうるため。
@@ -7,6 +7,7 @@ import { join } from "node:path";
  * 守れるのは同じマシンの中だけ。別のマシンからの同期とは排他にならない。
  */
 export function acquireLock(lockDir: string): () => void {
+  mkdirSync(dirname(lockDir), { recursive: true });
   if (!tryCreate(lockDir)) {
     const owner = readOwner(lockDir);
     // PID が読めないのは、相手が mkdir と PID の書き込みの間にいるときもある。古いロックとはみなさない。

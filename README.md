@@ -64,9 +64,10 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 
 - **ページは 1 ファイルで配る。** `sync` が、相対パスで読む素材を data URI にしてページに埋め込む。
   - 別のファイルとして置いた素材には署名がなく 403 になるため（署名は URL ごとの canned policy）
-  - 埋め込むのは `img`・`source`・`script`・`audio`・`video`・`track`・`input` の `src`、`srcset`、`video` の `poster`、SVG の `image`・`use` の `href`、`link rel="stylesheet"`・`"icon"` の `href`、CSS（`<style>`・`style` 属性・CSS ファイル）の `url()` と `@import`
+  - 埋め込むのは `img`・`source`・`script`・`audio`・`video`・`track`・`input` の `src`、`srcset`、`video` の `poster`、SVG の `image` の `href`、`link rel="stylesheet"`・`"icon"` の `href`、CSS（`<style>`・`style` 属性・CSS ファイル）の `url()` と `@import`
   - 埋め込める拡張子は `scripts/lib/embed.ts` の一覧にあるものだけ。素材は 1 つ 10 MiB、埋め込んだ後のページは 25 MiB まで
   - JS の中の `import` は解決しない。JS は 1 ファイルにまとめておく
+  - SVG の `<use>` から別ファイルの SVG は参照できない（ブラウザが data URI を描画しない）。SVG をページに直接書く
   - `/` で始まるパスは使えない。ページからの相対パスにする
   - HTML は UTF-8 で書く
   - 外部の URL（CDN のライブラリ、Google Fonts、外部の画像など）は CSP で読み込めない。`sync` は警告を出して、そのまま残す

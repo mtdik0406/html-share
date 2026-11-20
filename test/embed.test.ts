@@ -131,9 +131,9 @@ describe("embedPage: 埋め込み", () => {
   it("クエリは捨て、フラグメントは残す", () => {
     write("icons.svg", "<svg/>");
     write("a.png", "A");
-    const { html } = embed(page('<img src="a.png?v=2"><svg><use href="icons.svg#home"/></svg>'));
+    const { html } = embed(page('<img src="a.png?v=2"><svg><image href="icons.svg#home"/></svg>'));
     assert.equal(decodeDataUri(attr(html, "img", "src") ?? "").body, "A");
-    assert.match(attr(html, "use", "href") ?? "", /^data:image\/svg\+xml;base64,.*#home$/);
+    assert.match(attr(html, "image", "href") ?? "", /^data:image\/svg\+xml;base64,.*#home$/);
   });
 
   it("% エンコードされたファイル名を読める", () => {
@@ -148,6 +148,17 @@ describe("embedPage: 埋め込み", () => {
     const source = page(body);
     const { html } = embed(source);
     assert.ok(html.includes(body));
+  });
+
+  it("前に改行 CRLF や絵文字（サロゲートペア）があっても、書き換える位置がずれない", () => {
+    write("a.png", "A");
+    const before = '<p title="😀😀">日本語\r\n😀</p>\r\n';
+    const after = '<p id="after">😀</p>';
+    const { html } = embed(page(`${before}<img src="a.png" alt="x">${after}`));
+    assert.ok(html.includes(before));
+    assert.ok(html.includes(after));
+    assert.equal(decodeDataUri(attr(html, "img", "src") ?? "").body, "A");
+    assert.equal(attr(html, "img", "alt"), "x");
   });
 
   it("コメントの中や a の href の相対パスは、素材として扱わない", () => {
@@ -189,6 +200,10 @@ describe("embedPage: 拒否する入力", () => {
     assert.throws(() => embed(page('<img src="link.png">')));
   });
 
+  it("存在しない roots はエラー", () => {
+    assert.throws(() => embedPage(page("<p>x</p>"), [join(base, "missing")]));
+  });
+
   it("roots の外のページはエラー", () => {
     const outside = write("index.html", "<p>x</p>", base);
     assert.throws(() => embedPage(outside, [root]));
@@ -197,6 +212,11 @@ describe("embedPage: 拒否する入力", () => {
   it("許可していない拡張子はエラー", () => {
     write("private.pem", "KEY");
     assert.throws(() => embed(page('<img src="private.pem">')));
+  });
+
+  it("<use> から別ファイルの SVG を参照するとエラー（ブラウザが data: を描画しない）", () => {
+    write("icons.svg", "<svg/>");
+    assert.throws(() => embed(page('<svg><use href="icons.svg#home"/></svg>')));
   });
 
   it("/ で始まるパスはエラー", () => {
