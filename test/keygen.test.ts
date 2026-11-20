@@ -5,8 +5,8 @@ import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { PRIVATE_KEY_FILE, PUBLIC_KEY_FILE } from "../scripts/lib/key-paths.js";
 import { writeKeyPair } from "../scripts/lib/keygen.js";
+import { PRIVATE_KEY_FILE, PUBLIC_KEY_FILE } from "../scripts/lib/paths.js";
 
 describe("writeKeyPair", () => {
   let dir: string;

@@ -10,9 +10,12 @@ export function assertSlug(slug: string | undefined): asserts slug is string {
   }
 }
 
+/** 同期はこの下だけを手元と同じにする。ほかの場所のオブジェクトには触れない。 */
+export const PAGES_PREFIX = "pages/";
+
 /** CloudFront は URL のパスをそのまま S3 のキーとして読むので、pageUrl と必ず対応させる。 */
 export function pageKey(slug: string): string {
-  return `pages/${slug}/index.html`;
+  return `${PAGES_PREFIX}${slug}/index.html`;
 }
 
 export function pageUrl(distributionDomainName: string, slug: string): string {

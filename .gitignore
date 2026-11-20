@@ -14,3 +14,7 @@ cdk.context.json
 .DS_Store
 .env
 .env.*
+
+# 公開するページの一覧（手元のパスを含む）と、同期のロック
+html-share.config.json
+.html-share/

@@ -1,0 +1,51 @@
+import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, it } from "node:test";
+import { acquireLock } from "../scripts/lib/lock.js";
+
+let base: string;
+let lockDir: string;
+
+beforeEach(() => {
+  base = mkdtempSync(join(tmpdir(), "lock-test-"));
+  lockDir = join(base, "sync.lock");
+});
+afterEach(() => {
+  rmSync(base, { recursive: true, force: true });
+});
+
+function deadPid(): number {
+  // 終了済みの子プロセスの PID。すぐに再利用されることはまずない。
+  const child = spawnSync(process.execPath, ["-e", ""]);
+  assert.ok(child.pid);
+  return child.pid;
+}
+
+describe("acquireLock", () => {
+  it("取っている間は、2 つ目を拒否する", () => {
+    const release = acquireLock(lockDir);
+    assert.throws(() => acquireLock(lockDir));
+    release();
+  });
+
+  it("解放した後は、また取れる", () => {
+    acquireLock(lockDir)();
+    const release = acquireLock(lockDir);
+    release();
+  });
+
+  it("持ち主が終了しているロックは、取り直せる", () => {
+    mkdirSync(lockDir);
+    writeFileSync(join(lockDir, "pid"), String(deadPid()));
+    const release = acquireLock(lockDir);
+    release();
+  });
+
+  it("PID が読めないロックは、取り直さずに拒否する", () => {
+    mkdirSync(lockDir);
+    assert.throws(() => acquireLock(lockDir));
+  });
+});

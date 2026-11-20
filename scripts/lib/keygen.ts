@@ -1,7 +1,7 @@
 import { generateKeyPairSync } from "node:crypto";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PRIVATE_KEY_FILE, PUBLIC_KEY_FILE } from "./key-paths.js";
+import { PRIVATE_KEY_FILE, PUBLIC_KEY_FILE } from "./paths.js";
 
 /**
  * 既存の鍵は片方でもあれば上書きしない。

@@ -1,0 +1,5 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 2rem;
+  background: url(../img/mark.svg) no-repeat right 2rem top 2rem / 96px;
+}

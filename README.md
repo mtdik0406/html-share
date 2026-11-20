@@ -28,21 +28,48 @@ deploy した後に鍵を作り直すと、登録済みの公開鍵と合わな�
 
 ## 使い方
 
-```sh
-pnpm run upload samples/hello.html page-a              # S3 の pages/page-a/index.html に置く
-pnpm run upload samples/hello.html page-a --overwrite  # 既存のページを上書きする
-pnpm run sign page-a                                   # 7 日間有効な URL（既定）
-pnpm run sign page-a --days 3
-pnpm run sign page-a --minutes 1                       # 期限は 1 分以上、30 日以内
+公開するページは設定ファイル `html-share.config.json` に並べる。手元のパスを含むので git の対象外にしている。書き方は `html-share.config.example.json` を写して使う。
+
+```json
+{
+  "roots": ["~/work/pages"],
+  "pages": [{ "slug": "report", "source": "~/work/pages/report/index.html" }]
+}
 ```
+
+- `roots`：ページと素材を置いてよいディレクトリ。この外のファイルは、シンボリックリンクで指していても使わない
+- `pages`：`slug` は URL のパスになる（英小文字・数字・ハイフン、64 文字以内）。`source` は元の HTML
+- 相対パスは設定ファイルのあるディレクトリから、`~/` はホームから解決する
+
+```sh
+pnpm run sync --dry-run                 # S3 をどう変えるかだけを表示する
+pnpm run sync                           # S3 の pages/ を設定と同じにする
+pnpm run sync --config path/to/config.json
+pnpm run sign report                    # 7 日間有効な URL（既定）
+pnpm run sign report --days 3
+pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
+```
+
+`sync` は、設定を正として S3 の `pages/` の下を同じにする。
+
+- 設定にあり、S3 に無いか中身が違うページを置く。中身が同じページは送らない
+- **設定に無いページは S3 から消す。** 配布済みの URL を止める手段はこれしかない（署名付き URL は個別に取り消せない）
+- 公開中のページの 2 割以上を一度に消すときは止まる。意図どおりなら `--allow-mass-delete` を付ける
+- 設定のページが 0 のときは、フラグを付けても止まる
+- 同じマシンで 2 つの `sync` を同時に動かすと、後のほうが止まる（`.html-share/sync.lock`）
 
 引数の前に `--` を付けない。pnpm は `--` もそのままスクリプトに渡すので、余分な引数としてエラーになる。
 
 ## 制約
 
-- **ページは 1 ファイルで完結させる。** CSS と JS はインラインに書き、画像・フォント・音声・動画は data URI にする。
-  - 相対パスで読む素材には署名がないので 403 になる（署名は URL ごとの canned policy）
-  - 外部の URL（CDN のライブラリ、Google Fonts、外部の画像など）は CSP で読み込めない
+- **ページは 1 ファイルで配る。** `sync` が、相対パスで読む素材を data URI にしてページに埋め込む。
+  - 別のファイルとして置いた素材には署名がなく 403 になるため（署名は URL ごとの canned policy）
+  - 埋め込むのは `img`・`source`・`script`・`audio`・`video`・`track`・`input` の `src`、`srcset`、`video` の `poster`、SVG の `image`・`use` の `href`、`link rel="stylesheet"`・`"icon"` の `href`、CSS（`<style>`・`style` 属性・CSS ファイル）の `url()` と `@import`
+  - 埋め込める拡張子は `scripts/lib/embed.ts` の一覧にあるものだけ。素材は 1 つ 10 MiB、埋め込んだ後のページは 25 MiB まで
+  - JS の中の `import` は解決しない。JS は 1 ファイルにまとめておく
+  - `/` で始まるパスは使えない。ページからの相対パスにする
+  - HTML は UTF-8 で書く
+  - 外部の URL（CDN のライブラリ、Google Fonts、外部の画像など）は CSP で読み込めない。`sync` は警告を出して、そのまま残す
 - **ページは sandbox の中で動き、許されるのはインラインの JS の実行だけ。** 設定は `lib/html-share-stack.ts` の Content-Security-Policy。
   - `fetch`・XHR・WebSocket は通らない。外部の API を呼ぶページは動かない
   - Cookie・`localStorage`・`sessionStorage` は使えない（触ると例外になる）
@@ -68,7 +95,7 @@ pnpm exec cdk diff    # AWS 上の今の状態との差分を見る
 | -------------- | ------------------------------------------------------------------ |
 | `bin/`         | CDK アプリの入口。どのスタックを、どの設定で作るか                 |
 | `lib/`         | スタックの定義（S3・CloudFront・公開鍵・応答ヘッダー）             |
-| `scripts/`     | CLI（keygen・upload・sign）                                        |
+| `scripts/`     | CLI（keygen・sync・sign）                                          |
 | `scripts/lib/` | CLI が使う部品。AWS を呼ばない純粋な関数は、ここに分けてテストする |
 | `test/`        | スタックの安全性の不変条件と、純粋な関数の境界値のテスト           |
 | `samples/`     | 動作確認用の HTML                                                  |

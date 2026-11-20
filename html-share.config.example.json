@@ -1,0 +1,7 @@
+{
+  "roots": ["samples"],
+  "pages": [
+    { "slug": "hello", "source": "samples/hello.html" },
+    { "slug": "with-assets", "source": "samples/with-assets/index.html" }
+  ]
+}

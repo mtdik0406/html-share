@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { App } from "aws-cdk-lib";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
 import { STACK_NAME } from "../lib/names.js";
-import { PUBLIC_KEY_PATH } from "../scripts/lib/key-paths.js";
+import { PUBLIC_KEY_PATH } from "../scripts/lib/paths.js";
 
 // 秘密鍵はここで読まない。CDK に渡した値はテンプレートに入り、AWS に送られるため。
 if (!existsSync(PUBLIC_KEY_PATH)) {
