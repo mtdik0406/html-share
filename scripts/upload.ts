@@ -11,8 +11,11 @@ await runCli(async () => {
     options: { overwrite: { type: "boolean", default: false } },
   });
 
-  const [file, slug] = positionals;
-  if (file === undefined) throw new Error("HTML ファイルのパスを指定してください");
+  // 余分な引数を黙って捨てない。`--` の後ろのオプションは位置引数になり、無視されてしまうため。
+  if (positionals.length !== 2) {
+    throw new Error("使い方: pnpm run upload <HTML ファイル> <slug> [--overwrite]");
+  }
+  const [file, slug] = positionals as [string, string];
   assertSlug(slug);
   // AWS に問い合わせる前に、手元の入力の誤りを見つける。
   const body = await readFile(file);
@@ -43,5 +46,5 @@ await runCli(async () => {
   }
 
   console.log(`uploaded: s3://${bucketName}/${key}`);
-  console.log(`次に署名付き URL を作る: npm run sign -- ${slug}`);
+  console.log(`次に署名付き URL を作る: pnpm run sign ${slug}`);
 });

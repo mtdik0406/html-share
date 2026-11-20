@@ -1,0 +1,3 @@
+allowBuilds:
+  # esbuild の本体は OS ごとの optional 依存として入るので、postinstall（本体の確認）は不要。
+  esbuild: false

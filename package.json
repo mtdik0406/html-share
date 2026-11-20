@@ -4,6 +4,7 @@
   "private": true,
   "description": "AI が作った HTML を自分の AWS に置き、署名付き URL で配る",
   "type": "module",
+  "packageManager": "pnpm@12.21.0",
   "engines": {
     "node": ">=22"
   },
@@ -15,7 +16,7 @@
     "lint": "biome check .",
     "format": "biome check --write .",
     "test": "tsx --test \"test/**/*.test.ts\"",
-    "check": "npm run typecheck && npm run lint && npm run test"
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run test"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",

@@ -16,6 +16,10 @@ await runCli(async () => {
     },
   });
 
+  // 余分な引数を黙って捨てない。`--` の後ろのオプションは位置引数になり、無視されてしまうため。
+  if (positionals.length !== 1) {
+    throw new Error("使い方: pnpm run sign <slug> [--days N | --minutes N]");
+  }
   const [slug] = positionals;
   assertSlug(slug);
   const lifetimeMs = parseLifetimeMs(values);

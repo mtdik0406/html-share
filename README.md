@@ -9,18 +9,18 @@ AI が作った HTML を自分の AWS に置き、期限付きの署名付き UR
 
 ## 必要なもの
 
-- Node.js 22 以降
+- Node.js 22 以降と pnpm（バージョンは `package.json` の `packageManager`）
 - AWS CLI と、デプロイ先のアカウントにログインできるプロファイル
 - CloudFront の既定のドメイン（`xxxx.cloudfront.net`）で動く。独自ドメインと ACM 証明書は使わない
 
 ## セットアップ
 
 ```sh
-npm ci
-npm run keygen                      # .keys/ に RSA 2048 の鍵ペアを作る（既存の鍵は上書きしない）
+pnpm install --frozen-lockfile
+pnpm run keygen                     # .keys/ に RSA 2048 の鍵ペアを作る（既存の鍵は上書きしない）
 export AWS_PROFILE=<プロファイル名>
-npx cdk bootstrap                   # アカウントとリージョンごとに 1 回だけ
-npx cdk deploy
+pnpm exec cdk bootstrap             # アカウントとリージョンごとに 1 回だけ
+pnpm exec cdk deploy
 ```
 
 `.keys/private.pem` は秘密鍵で、git の対象外。AWS にも送らない。
@@ -29,12 +29,14 @@ deploy した後に鍵を作り直すと、登録済みの公開鍵と合わな�
 ## 使い方
 
 ```sh
-npm run upload -- samples/hello.html page-a              # S3 の pages/page-a/index.html に置く
-npm run upload -- samples/hello.html page-a --overwrite  # 既存のページを上書きする
-npm run sign -- page-a                                   # 7 日間有効な URL（既定）
-npm run sign -- page-a --days 3
-npm run sign -- page-a --minutes 1                       # 期限は 1 分以上、30 日以内
+pnpm run upload samples/hello.html page-a              # S3 の pages/page-a/index.html に置く
+pnpm run upload samples/hello.html page-a --overwrite  # 既存のページを上書きする
+pnpm run sign page-a                                   # 7 日間有効な URL（既定）
+pnpm run sign page-a --days 3
+pnpm run sign page-a --minutes 1                       # 期限は 1 分以上、30 日以内
 ```
+
+引数の前に `--` を付けない。pnpm は `--` もそのままスクリプトに渡すので、余分な引数としてエラーになる。
 
 ## 制約
 
@@ -44,10 +46,10 @@ npm run sign -- page-a --minutes 1                       # 期限は 1 分以上
 ## 開発
 
 ```sh
-npm run check    # 型チェック・lint・テストをまとめて実行する
-npm run format   # 書式を直す
-npx cdk synth    # テンプレートを cdk.out/ に出す（AWS には何も作らない）
-npx cdk diff     # AWS 上の今の状態との差分を見る
+pnpm run check        # 型チェック・lint・テストをまとめて実行する
+pnpm run format       # 書式を直す
+pnpm exec cdk synth   # テンプレートを cdk.out/ に出す（AWS には何も作らない）
+pnpm exec cdk diff    # AWS 上の今の状態との差分を見る
 ```
 
 | ディレクトリ   | 中身                                                               |
@@ -62,7 +64,7 @@ npx cdk diff     # AWS 上の今の状態との差分を見る
 ## 片付け
 
 ```sh
-npx cdk destroy   # バケットの中身ごと消える
+pnpm exec cdk destroy   # バケットの中身ごと消える
 ```
 
 ## 謝辞
