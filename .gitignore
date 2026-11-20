@@ -1,0 +1,16 @@
+# 秘密鍵（絶対にコミットしない）
+.keys/
+*.pem
+
+# Node / CDK
+node_modules/
+cdk.out/
+.cdk.staging/
+# CDK の推奨はコミットだが、lookup の結果にアカウント ID が入るため除外する。
+# このスタックは lookup（fromLookup など）を使わないので、除外しても synth の結果は変わらない。
+cdk.context.json
+
+# OS / editor
+.DS_Store
+.env
+.env.*
