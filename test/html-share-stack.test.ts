@@ -119,6 +119,133 @@ describe("HtmlShareStack", () => {
     }
   });
 
+  /** 並び順や空白の違いでテストが壊れないよう、ディレクティブ名ごとに分ける。 */
+  const parseCsp = (csp: string): Map<string, string[]> => {
+    const directives = new Map<string, string[]>();
+    for (const directive of csp.split(";")) {
+      const [name, ...values] = directive.trim().split(/\s+/);
+      if (!name) continue;
+      const key = name.toLowerCase();
+      // ブラウザは最初の 1 つに従い、2 つ目以降を無視する。テストが見る方と食い違わないよう、重複そのものを拒む。
+      assert.ok(!directives.has(key), `${key} が 2 回ある`);
+      directives.set(
+        key,
+        values.map((v) => v.toLowerCase()),
+      );
+    }
+    return directives;
+  };
+
+  const responseHeadersPoliciesOfBehaviors = (): Json[] => {
+    const policies = resourcesOf("AWS::CloudFront::ResponseHeadersPolicy");
+    const behaviors = Object.values(resourcesOf("AWS::CloudFront::Distribution")).flatMap(
+      behaviorsOf,
+    );
+    // 空だと、呼び出し側のループが何も確かめずに成功する。
+    assert.ok(behaviors.length > 0, "ビヘイビアが見つからない");
+    return behaviors.map((behavior) => {
+      const [ref] = refsIn(behavior.ResponseHeadersPolicyId);
+      assert.ok(
+        ref && ref in policies,
+        `このスタックのヘッダーポリシーがない: ${behavior.PathPattern ?? "default"}`,
+      );
+      return policies[ref].Properties.ResponseHeadersPolicyConfig;
+    });
+  };
+
+  it("すべてのビヘイビアが、ページを sandbox に入れ、許す操作はスクリプトの実行だけ", () => {
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      const csp = config.SecurityHeadersConfig.ContentSecurityPolicy;
+      assert.equal(csp.Override, true);
+      const sandbox = parseCsp(csp.ContentSecurityPolicy).get("sandbox");
+      assert.ok(sandbox, "sandbox がない");
+      // allow-same-origin があると Cookie と localStorage に触れ、allow-forms があると送信できる。
+      // 新しいタブ・ダウンロード・ダイアログも許さない。足すなら、このテストを変える判断を伴う。
+      for (const token of sandbox) {
+        assert.ok(token === "allow-scripts", `sandbox に ${token} がある`);
+      }
+    }
+  });
+
+  it("すべてのビヘイビアが、外部から何も読ませず、外へ何も送らせない", () => {
+    const allowedSources = new Set(["'none'", "'unsafe-inline'", "data:"]);
+    // 知らない名前を拒む。report-uri・report-to のように、違反の報告（署名付き URL を含む）を外へ送らせるものがあるため。
+    const allowedDirectives = new Set([
+      "default-src",
+      "script-src",
+      "style-src",
+      "img-src",
+      "font-src",
+      "media-src",
+      "connect-src",
+      "form-action",
+      "frame-ancestors",
+      "base-uri",
+      "sandbox",
+    ]);
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      const directives = parseCsp(
+        config.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy,
+      );
+
+      // 個別に書いていない種類の読み込みは default-src に従う。
+      assert.deepEqual(directives.get("default-src"), ["'none'"]);
+      for (const name of directives.keys()) {
+        assert.ok(allowedDirectives.has(name), `想定していないディレクティブ: ${name}`);
+      }
+      for (const [name, sources] of directives) {
+        // script-src-elem・style-src-attr のように -src の後ろに続く名前もある。
+        if (!name.includes("-src")) continue;
+        for (const source of sources) {
+          assert.ok(allowedSources.has(source), `${name} が ${source} を許している`);
+        }
+      }
+      // form-action・frame-ancestors・base-uri は default-src に従わない。
+      // connect-src は従うが、外への送信の要なので、default-src が緩んでも残るよう個別に固定する。
+      for (const name of ["connect-src", "form-action", "frame-ancestors", "base-uri"]) {
+        assert.deepEqual(directives.get(name), ["'none'"], `${name} が 'none' でない`);
+      }
+    }
+  });
+
+  it("すべてのビヘイビアが、署名付き URL を Referer で漏らさない", () => {
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      const referrer = config.SecurityHeadersConfig.ReferrerPolicy;
+      assert.equal(referrer.ReferrerPolicy, "no-referrer");
+      assert.equal(referrer.Override, true);
+    }
+  });
+
+  it("すべてのビヘイビアが、ブラウザに保存させず、検索エンジンに載せない", () => {
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      const headers = new Map<string, Json>(
+        config.CustomHeadersConfig.Items.map((h: Json) => [h.Header.toLowerCase(), h]),
+      );
+      const tokensOf = (name: string): string[] => headers.get(name)?.Value.split(/\s*,\s*/) ?? [];
+      assert.ok(tokensOf("cache-control").includes("no-store"));
+      assert.ok(tokensOf("x-robots-tag").includes("noindex"));
+      for (const name of ["cache-control", "x-robots-tag"]) {
+        assert.equal(headers.get(name).Override, true, `${name} がオリジンの値に負ける`);
+      }
+      assert.equal(config.SecurityHeadersConfig.StrictTransportSecurity.Override, true);
+    }
+  });
+
+  it("すべてのビヘイビアが、Content-Type と違う種類のファイルとして解釈させない", () => {
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      assert.equal(config.SecurityHeadersConfig.ContentTypeOptions?.Override, true);
+    }
+  });
+
+  it("すべてのビヘイビアが、ほかのサイトに埋め込ませない", () => {
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      // CSP の frame-ancestors を解さない古いブラウザ向け。
+      const frameOptions = config.SecurityHeadersConfig.FrameOptions;
+      assert.equal(frameOptions?.FrameOption, "DENY");
+      assert.equal(frameOptions?.Override, true);
+    }
+  });
+
   it("スクリプトが読む出力を持つ", () => {
     for (const key of Object.values(OUTPUT_KEYS)) {
       template.hasOutput(key, {});

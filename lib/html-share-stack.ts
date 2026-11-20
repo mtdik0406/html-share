@@ -1,4 +1,4 @@
-import { CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as s3 from "aws-cdk-lib/aws-s3";
@@ -35,6 +35,56 @@ export class HtmlShareStack extends Stack {
       items: [publicKey],
     });
 
+    // ページは自分以外が書いた HTML（AI の出力）なので、外へ持ち出す手段をできるだけ減らす。
+    // ゼロにはできない。ページが自分自身を外部の URL へ移動させることは、ヘッダーでは止められない。
+    const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, "ViewerHeaders", {
+      comment: "html-share viewer: sandbox, no-store, noindex",
+      securityHeadersBehavior: {
+        contentSecurityPolicy: {
+          // sandbox は <meta> では効かないので、ヘッダーで付ける。
+          // allow-same-origin を付けないので、ページは不透明なオリジンになり、Cookie と localStorage に触れない。
+          // 外部からは何も読ませない。読み込むたびに、閲覧者のアクセスが外部のサイトに伝わるため。
+          // 素材は data URI でページに埋め込む前提なので、data: だけを許す。
+          contentSecurityPolicy: [
+            "default-src 'none'",
+            "script-src 'unsafe-inline' data:",
+            "style-src 'unsafe-inline' data:",
+            "img-src data:",
+            "font-src data:",
+            "media-src data:",
+            "connect-src 'none'",
+            "form-action 'none'",
+            "frame-ancestors 'none'",
+            "base-uri 'none'",
+            "sandbox allow-scripts",
+          ].join("; "),
+          override: true,
+        },
+        // 既定の strict-origin-when-cross-origin でもクエリは落ちるが、オリジンも渡す理由がない。
+        // 署名はクエリにあるので、ここが緩むと URL を持たない相手に閲覧権を渡すことになる。
+        referrerPolicy: {
+          referrerPolicy: cloudfront.HeadersReferrerPolicy.NO_REFERRER,
+          override: true,
+        },
+        contentTypeOptions: { override: true },
+        frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
+        // *.cloudfront.net は自分のドメインではないので、includeSubdomains と preload は付けない。
+        strictTransportSecurity: {
+          accessControlMaxAge: Duration.days(365),
+          includeSubdomains: false,
+          override: true,
+        },
+      },
+      customHeadersBehavior: {
+        customHeaders: [
+          // 期限が切れた URL のページを、ブラウザのキャッシュや戻るボタンで見せないため。
+          // CloudFront 自身のキャッシュは cachePolicy で止めている。これは閲覧者側だけに効く。
+          { header: "Cache-Control", value: "no-store", override: true },
+          { header: "X-Robots-Tag", value: "noindex, nofollow", override: true },
+        ],
+      },
+    });
+
     const distribution = new cloudfront.Distribution(this, "ContentDistribution", {
       comment: "html-share viewer",
       defaultBehavior: {
@@ -46,6 +96,7 @@ export class HtmlShareStack extends Stack {
         cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
         // 名前は "trusted" だが、指定すると署名のない要求はすべて拒否される（任意ではなく必須）。
         trustedKeyGroups: [keyGroup],
+        responseHeadersPolicy,
       },
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,
     });

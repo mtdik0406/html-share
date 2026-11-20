@@ -40,7 +40,19 @@ pnpm run sign page-a --minutes 1                       # 期限は 1 分以上�
 
 ## 制約
 
-- **ページは 1 ファイルで完結させる。** 署名は URL ごと（canned policy）なので、ページが相対パスで読む CSS・画像・JS には署名がなく、403 になる。CSS と JS はインラインに書き、画像は data URI にする。
+- **ページは 1 ファイルで完結させる。** CSS と JS はインラインに書き、画像・フォント・音声・動画は data URI にする。
+  - 相対パスで読む素材には署名がないので 403 になる（署名は URL ごとの canned policy）
+  - 外部の URL（CDN のライブラリ、Google Fonts、外部の画像など）は CSP で読み込めない
+- **ページは sandbox の中で動き、許されるのはインラインの JS の実行だけ。** 設定は `lib/html-share-stack.ts` の Content-Security-Policy。
+  - `fetch`・XHR・WebSocket は通らない。外部の API を呼ぶページは動かない
+  - Cookie・`localStorage`・`sessionStorage` は使えない（触ると例外になる）
+  - `target="_blank"` のリンクは開かない（何も起きない）
+  - フォームの送信、`alert`・`confirm`・`print`、ダウンロードはできない
+  - `eval` と `new Function` は使えない
+- **外への持ち出しは減らしているが、ゼロではない。** 信用できない JS を含むページは公開しない。
+  - ページの JS が自分自身を外部の URL へ移動させると、そのページの署名付き URL や閲覧者の情報を渡せる。ヘッダーでは止められない
+  - WebRTC など、CSP で止めきれない通信の経路がある（ブラウザによって異なる）
+- 応答には `Cache-Control: no-store`・`X-Robots-Tag: noindex`・`Referrer-Policy: no-referrer` も付く。期限切れの URL をブラウザのキャッシュで見せず、署名付き URL を Referer で外部に渡さないため。
 - 期限内の署名付き URL を持つ人は誰でも見られる。渡す相手と期限で管理する。
 
 ## 開発
@@ -55,7 +67,7 @@ pnpm exec cdk diff    # AWS 上の今の状態との差分を見る
 | ディレクトリ   | 中身                                                               |
 | -------------- | ------------------------------------------------------------------ |
 | `bin/`         | CDK アプリの入口。どのスタックを、どの設定で作るか                 |
-| `lib/`         | スタックの定義（S3・CloudFront・公開鍵）                           |
+| `lib/`         | スタックの定義（S3・CloudFront・公開鍵・応答ヘッダー）             |
 | `scripts/`     | CLI（keygen・upload・sign）                                        |
 | `scripts/lib/` | CLI が使う部品。AWS を呼ばない純粋な関数は、ここに分けてテストする |
 | `test/`        | スタックの安全性の不変条件と、純粋な関数の境界値のテスト           |
