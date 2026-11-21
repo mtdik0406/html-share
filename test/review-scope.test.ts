@@ -7,6 +7,7 @@ import {
   guardedFiles,
   reviewScope,
   survivorsOnChangedLines,
+  wholeFiles,
 } from "../tools/lib/review-scope.js";
 
 describe("reviewScope", () => {
@@ -122,5 +123,11 @@ describe("survivorsOnChangedLines", () => {
       { file: "a.ts", line: 2, mutator: "ConditionalExpression", status: "Survived" },
       { file: "a.ts", line: 3, mutator: "BlockStatement", status: "NoCoverage" },
     ]);
+  });
+});
+
+describe("wholeFiles", () => {
+  it("指定したファイルの、すべての行を変えた行とみなす", () => {
+    assert.deepEqual(wholeFiles({ "a.ts": "x\ny\nz" }), new Map([["a.ts", new Set([1, 2, 3])]]));
   });
 });

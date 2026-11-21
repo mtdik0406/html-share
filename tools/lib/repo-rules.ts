@@ -6,7 +6,9 @@ export interface Finding {
 }
 
 const FORBIDDEN_TEXT: readonly { pattern: RegExp; reason: string }[] = [
+  // Stryker disable next-line StringLiteral: 表示の文言
   { pattern: /\/(?:Users|home)\/[^/\s]+\//, reason: "マシン固有の絶対パス" },
+  // Stryker disable next-line StringLiteral: 表示の文言
   { pattern: /学習用|自作版|実験|段階\s*[0-9０-９]/, reason: "作った経緯の言葉" },
 ];
 
@@ -22,6 +24,7 @@ export function findForbiddenText(text: string): Finding[] {
 const ERROR_ASSERTIONS = new Set(["throws", "rejects"]);
 
 export function findMessageAssertions(source: string): Finding[] {
+  // Stryker disable next-line StringLiteral: 解析に使わない仮のファイル名
   const file = ts.createSourceFile("test.ts", source, ts.ScriptTarget.Latest, true);
   const findings: Finding[] = [];
   const visit = (node: ts.Node): void => {
@@ -34,6 +37,7 @@ export function findMessageAssertions(source: string): Finding[] {
       if (expected !== undefined && looksAtMessage(expected)) {
         findings.push({
           line: file.getLineAndCharacterOfPosition(node.getStart()).line + 1,
+          // Stryker disable next-line StringLiteral: 表示の文言
           reason: "エラーの文言を見ている",
         });
       }

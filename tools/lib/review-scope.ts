@@ -44,12 +44,14 @@ export function changedLines(diff: string): Map<string, Set<number>> {
   const result = new Map<string, Set<number>>();
   let lines: Set<number> | undefined;
   for (const line of diff.split("\n")) {
+    // Stryker disable next-line Regex: diff の行は +・-・空白・@ で始まるので、^ と $ の有無で結果は変わらない
     const file = /^\+\+\+ b\/(.+)$/.exec(line);
     if (file) {
       lines = new Set();
       result.set(file[1] as string, lines);
       continue;
     }
+    // Stryker disable next-line Regex: hunk の見出しは行頭にしか出ないので、^ の有無で結果は変わらない
     const hunk = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (hunk && lines) {
       const start = Number(hunk[1]);
@@ -82,5 +84,14 @@ export function survivorsOnChangedLines(
         mutator: m.mutatorName,
         status: m.status,
       })),
+  );
+}
+
+export function wholeFiles(contents: Record<string, string>): Map<string, Set<number>> {
+  return new Map(
+    Object.entries(contents).map(([file, text]) => [
+      file,
+      new Set(Array.from({ length: text.split("\n").length }, (_, i) => i + 1)),
+    ]),
   );
 }
