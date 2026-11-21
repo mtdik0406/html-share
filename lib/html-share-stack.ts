@@ -125,6 +125,7 @@ export class HtmlShareStack extends Stack {
     });
 
     const signFunction = new nodejs.NodejsFunction(this, "SignFunction", {
+      // Stryker disable next-line StringLiteral: 表示の文言
       description: "html-share: SSM の秘密鍵でページの署名付き URL を作る",
       entry: fileURLToPath(new URL("./sign-function/index.ts", import.meta.url)),
       runtime: NODEJS_26,
@@ -139,6 +140,7 @@ export class HtmlShareStack extends Stack {
       bundling: {
         format: nodejs.OutputFormat.ESM,
         // ランタイムに入っている SDK を使わず、手元と同じ版をバンドルに含める（ADR 9）。
+        // Stryker disable next-line ArrayDeclaration: 存在しない名前を外に出しても、バンドルは同じ
         externalModules: [],
         // ESM のバンドルの中で、CommonJS の依存が require を使えるようにする。
         banner:
@@ -174,6 +176,7 @@ export class HtmlShareStack extends Stack {
     });
     new CfnOutput(this, OUTPUT_KEYS.signFunctionName, {
       value: signFunction.functionName,
+      // Stryker disable next-line StringLiteral: 表示の文言
       description: "pnpm run sign が呼ぶ署名の Lambda",
     });
   }

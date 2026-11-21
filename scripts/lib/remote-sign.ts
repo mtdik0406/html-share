@@ -15,19 +15,20 @@ export interface RemoteSignResult {
   expiresAt: string;
 }
 
+// Stryker disable BlockStatement: catch を空にしても undefined を返すので、振る舞いは同じ
 function decodePayload(payload: Uint8Array | undefined): unknown {
-  if (payload === undefined) return undefined;
   try {
     return JSON.parse(new TextDecoder().decode(payload));
   } catch {
     return undefined;
   }
 }
+// Stryker restore BlockStatement
 
 function isSignResult(value: unknown): value is RemoteSignResult {
-  if (typeof value !== "object" || value === null) return false;
-  const { url, expiresAt } = value as Record<string, unknown>;
-  return typeof url === "string" && typeof expiresAt === "string";
+  const fields = value as Record<string, unknown> | null | undefined;
+  // Stryker disable next-line OptionalChaining: null を読んでも TypeError で拒むので、振る舞いは同じ
+  return typeof fields?.url === "string" && typeof fields?.expiresAt === "string";
 }
 
 /** 期限の上限と slug は Lambda が確かめる（ADR 9）。ここで確かめても、Lambda を直接呼べば越えられるため。 */
@@ -46,7 +47,9 @@ export async function requestSignedUrl(
 
   // Lambda の中の例外は、呼び出し自体は成功し、FunctionError と本文の errorMessage で返る。
   if (res.FunctionError !== undefined) {
+    // Stryker disable next-line all: 表示の文言。理由を利用者に見せるためだけに使う
     const message = (body as { errorMessage?: unknown } | undefined)?.errorMessage;
+    // Stryker disable next-line all: 表示の文言
     throw new Error(
       `署名に失敗しました: ${typeof message === "string" ? message : res.FunctionError}`,
     );

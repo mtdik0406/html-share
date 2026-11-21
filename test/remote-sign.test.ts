@@ -46,6 +46,15 @@ describe("requestSignedUrl", () => {
     await assert.rejects(requestSignedUrl(lambda, FUNCTION, REQUEST));
   });
 
+  it("Lambda が失敗を返したら、本文が URL の形でも失敗として伝える", async () => {
+    const { lambda } = fakeLambda({
+      StatusCode: 200,
+      FunctionError: "Unhandled",
+      Payload: encode(RESULT),
+    });
+    await assert.rejects(requestSignedUrl(lambda, FUNCTION, REQUEST));
+  });
+
   it("返った値が URL と期限の形でなければ失敗する", async () => {
     for (const payload of [
       encode(null),

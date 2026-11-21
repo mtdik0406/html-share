@@ -21,14 +21,12 @@ interface SignRequest {
 
 // 呼び出し元を信じない。ここで確かめないと、上限を超える URL や別のパスへの署名を作れてしまう。
 function parseRequest(event: unknown): SignRequest {
-  if (typeof event !== "object" || event === null || Array.isArray(event)) {
-    throw new Error("要求は { slug, lifetimeMs } の形にしてください");
-  }
-  const fields = event as Record<string, unknown>;
+  // Stryker disable next-line LogicalOperator: null のまま分解しても TypeError で拒むので、振る舞いは同じ
+  const fields = (event ?? {}) as Record<string, unknown>;
   const slug = typeof fields.slug === "string" ? fields.slug : undefined;
   assertSlug(slug);
-  const { lifetimeMs } = fields;
-  if (typeof lifetimeMs !== "number") throw new Error("lifetimeMs は数にしてください");
+  // validateLifetimeMs は Number.isFinite で確かめるので、数でない値（文字列を含む）も拒む。
+  const lifetimeMs = fields.lifetimeMs as number;
   validateLifetimeMs(lifetimeMs);
   return { slug, lifetimeMs };
 }

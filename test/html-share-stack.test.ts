@@ -317,7 +317,17 @@ describe("HtmlShareStack", () => {
           .split(/\s*,\s*/)
           .map((entry: string) => entry.split("=") as [string, string]),
       );
-      for (const feature of ["camera", "microphone", "geolocation", "display-capture", "usb"]) {
+      for (const feature of [
+        "camera",
+        "microphone",
+        "geolocation",
+        "display-capture",
+        "usb",
+        "serial",
+        "hid",
+        "bluetooth",
+        "payment",
+      ]) {
         assert.equal(permissions.get(feature), "()", `${feature} を止めていない`);
       }
       for (const name of ["cross-origin-opener-policy", "permissions-policy"]) {
@@ -345,6 +355,13 @@ describe("HtmlShareStack", () => {
     });
   });
 
+  it("署名の Lambda のログは 30 日で消える", () => {
+    const logGroupRefs = refsIn(signFunction().Properties.LoggingConfig?.LogGroup);
+    assert.equal(logGroupRefs.length, 1, "ログの置き場所を指定していない");
+    const logGroup = resourcesOf("AWS::Logs::LogGroup")[logGroupRefs[0] as string];
+    assert.equal(logGroup?.Properties.RetentionInDays, 30);
+  });
+
   it("署名の Lambda は Node.js 26 で動く", () => {
     assert.equal(signFunction().Properties.Runtime, "nodejs26.x");
   });
@@ -361,6 +378,7 @@ describe("HtmlShareStack", () => {
       assert.equal(statement.Effect, "Allow");
       assert.deepEqual(asArray(statement.Action), ["ssm:GetParameter"]);
       const resource = JSON.stringify(statement.Resource);
+      assert.ok(resource.includes(":ssm:"), resource);
       assert.ok(resource.includes(`:parameter${SIGNING_KEY_PARAMETER_NAME}"`), resource);
       assert.ok(!resource.includes("*"), `Resource にワイルドカードがある: ${resource}`);
     }

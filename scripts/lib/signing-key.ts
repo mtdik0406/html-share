@@ -50,6 +50,7 @@ export async function loadSigningKey(ssm: SsmSender, parameterName: string): Pro
   const res = (await ssm.send(
     new GetParameterCommand({ Name: parameterName, WithDecryption: true }),
   )) as GetParameterCommandOutput;
+  // Stryker disable next-line OptionalChaining: Parameter がなくても TypeError で拒むので、振る舞いは同じ
   const value = res.Parameter?.Value;
   if (!value) throw new Error(`パラメータ ${parameterName} に値がありません`);
   return value;

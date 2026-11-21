@@ -1,3 +1,4 @@
+// Stryker disable all: バンドルを読み込むテスト（test/sign-function-bundle.test.ts）が確かめるが、Stryker はバンドルの中の実行をこのファイルの網羅に数えられない
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { loadSigningKey } from "../../scripts/lib/signing-key.js";
 import { SIGN_FUNCTION_ENV } from "../names.js";
