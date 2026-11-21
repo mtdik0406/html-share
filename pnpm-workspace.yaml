@@ -1,3 +1,6 @@
 allowBuilds:
   # esbuild の本体は OS ごとの optional 依存として入るので、postinstall（本体の確認）は不要。
   esbuild: false
+
+# 公開から 14 日（分で指定）たっていない版は入れない。乗っ取られた版は数日で見つかり、取り下げられることが多いため。
+minimumReleaseAge: 20160
