@@ -1,4 +1,5 @@
 import { parseArgs } from "node:util";
+import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { LambdaClient } from "@aws-sdk/client-lambda";
 import { runCli } from "./lib/cli.js";
 import { parseLifetimeMs } from "./lib/lifetime.js";
@@ -24,11 +25,15 @@ await runCli(async () => {
   assertSlug(slug);
   const lifetimeMs = parseLifetimeMs(values);
 
-  const { signFunctionName } = await readStackOutputs();
-  const { url, expiresAt } = await requestSignedUrl(new LambdaClient({}), signFunctionName, {
-    slug,
-    lifetimeMs,
-  });
+  const output = await readStackOutputs(new CloudFormationClient({}));
+  const { url, expiresAt } = await requestSignedUrl(
+    new LambdaClient({}),
+    output("signFunctionName"),
+    {
+      slug,
+      lifetimeMs,
+    },
+  );
 
   console.log(`expires: ${expiresAt}`);
   console.log(url);

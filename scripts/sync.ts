@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { S3Client } from "@aws-sdk/client-s3";
 import { runCli } from "./lib/cli.js";
 import { parseConfig } from "./lib/config.js";
@@ -40,7 +41,7 @@ await runCli(async () => {
     { dryRun, allowMassDelete: values["allow-mass-delete"] },
     {
       s3: new S3Client({}),
-      bucketName: async () => (await readStackOutputs()).bucketName,
+      bucketName: async () => (await readStackOutputs(new CloudFormationClient({})))("bucketName"),
       lockDir: LOCK_DIR,
       retiredPath: RETIRED_PATH,
       now: () => new Date(),
