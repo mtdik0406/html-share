@@ -4,7 +4,12 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { type DefaultTreeAdapterTypes, parse } from "parse5";
-import { classifyReference, embedPage, parseSrcset } from "../scripts/lib/embed.js";
+import {
+  classifyReference,
+  type EmbedLimits,
+  embedPage,
+  parseSrcset,
+} from "../scripts/lib/embed.js";
 
 type Element = DefaultTreeAdapterTypes.Element;
 
@@ -34,7 +39,7 @@ function page(body: string, head = ""): string {
   );
 }
 
-function embed(source: string, limits?: { maxAssetBytes: number; maxPageBytes: number }) {
+function embed(source: string, limits?: EmbedLimits) {
   const result = embedPage(source, [root], limits);
   return { ...result, html: result.html.toString("utf8") };
 }
@@ -125,6 +130,23 @@ describe("embedPage: 埋め込み", () => {
         ["A", "1x"],
         ["B", "2x"],
       ],
+    );
+  });
+
+  it("同じ素材を何度参照しても、どの参照も埋め込む", () => {
+    write("a.png", "A");
+    write("a.css", "p { background: url(a.png) }");
+    const { html } = embed(
+      page(
+        '<img src="a.png"><img src="./a.png">',
+        '<link rel="stylesheet" href="a.css"><style>@import "a.css";</style>',
+      ),
+    );
+    assert.equal(decodeDataUri(attr(html, "img", "src", 0) ?? "").body, "A");
+    assert.equal(decodeDataUri(attr(html, "img", "src", 1) ?? "").body, "A");
+    assert.match(
+      decodeDataUri(attr(html, "link", "href") ?? "").body,
+      /url\("data:image\/png;base64,/,
     );
   });
 

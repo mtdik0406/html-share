@@ -34,16 +34,16 @@ const MIME_TYPES: Readonly<Record<string, string>> = {
   ".mjs": "text/javascript",
 };
 
-export const DEFAULT_LIMITS = {
-  maxAssetBytes: 10 * 1024 * 1024,
-  /** data URI は base64 で約 1.33 倍になるので、素材の上限より大きく取る。 */
-  maxPageBytes: 25 * 1024 * 1024,
-} as const;
-
 export interface EmbedLimits {
   maxAssetBytes: number;
   maxPageBytes: number;
 }
+
+const DEFAULT_LIMITS: EmbedLimits = {
+  maxAssetBytes: 10 * 1024 * 1024,
+  /** data URI は base64 で約 1.33 倍になるので、素材の上限より大きく取る。 */
+  maxPageBytes: 25 * 1024 * 1024,
+};
 
 export interface EmbedResult {
   html: Buffer;
@@ -51,24 +51,41 @@ export interface EmbedResult {
   warnings: string[];
 }
 
-/** 要素ごとに、素材の URL を 1 つだけ持つ属性。<a href> はページ間の移動なので含めない。 */
-const URL_ATTRIBUTES: Readonly<Record<string, readonly string[]>> = {
-  img: ["src"],
-  source: ["src"],
-  script: ["src"],
-  audio: ["src"],
-  video: ["src", "poster"],
-  track: ["src"],
-  input: ["src"],
-  image: ["href", "xlink:href"],
+/**
+ * - url: 素材の URL を 1 つ持つ
+ * - srcset: 「URL 記述子」の候補を並べる
+ * - link: rel が EMBEDDED_LINK_RELS のときだけ url と同じ。ほかの rel（canonical など）は素材ではない
+ * - reject-local: Chrome は <use> の data: URL を描画しない。別ファイルのままでは署名がなく 403 になるので、止める
+ *
+ * <a href> はページ間の移動で素材ではないので含めない。style 属性はどの要素でも CSS として扱う。
+ */
+type Handling = "url" | "srcset" | "link" | "reject-local";
+const ATTRIBUTE_HANDLING: Readonly<Record<string, Readonly<Record<string, Handling>>>> = {
+  img: { src: "url", srcset: "srcset" },
+  source: { src: "url", srcset: "srcset" },
+  script: { src: "url" },
+  audio: { src: "url" },
+  video: { src: "url", poster: "url" },
+  track: { src: "url" },
+  input: { src: "url" },
+  image: { href: "url", "xlink:href": "url" },
+  link: { href: "link" },
+  use: { href: "reject-local", "xlink:href": "reject-local" },
 };
-const SRCSET_ELEMENTS = new Set(["img", "source"]);
 const EMBEDDED_LINK_RELS = new Set(["stylesheet", "icon", "apple-touch-icon"]);
 
 interface Edit {
   start: number;
   end: number;
   text: string;
+}
+
+interface Context {
+  roots: string[];
+  limits: EmbedLimits;
+  warnings: string[];
+  /** 実体のパス → data URI。同じ素材を何度参照されても、読み込みと変換は 1 回で済ませる。 */
+  cache: Map<string, string>;
 }
 
 /**
@@ -80,6 +97,19 @@ export function embedPage(
   roots: readonly string[],
   limits: EmbedLimits = DEFAULT_LIMITS,
 ): EmbedResult {
+  try {
+    return embedPageUnlabeled(sourcePath, roots, limits);
+  } catch (err) {
+    // 同期は複数のページを続けて埋め込むので、どのページで失敗したかをここで 1 度だけ添える。
+    throw new Error(`${sourcePath}: ${(err as Error).message}`, { cause: err });
+  }
+}
+
+function embedPageUnlabeled(
+  sourcePath: string,
+  roots: readonly string[],
+  limits: EmbedLimits,
+): EmbedResult {
   const realRoots = roots.map((root) => {
     try {
       return realpathSync(root);
@@ -87,9 +117,9 @@ export function embedPage(
       throw new Error(`roots のディレクトリが見つかりません: ${root}`);
     }
   });
-  const ctx: Context = { roots: realRoots, limits, warnings: [] };
+  const ctx: Context = { roots: realRoots, limits, warnings: [], cache: new Map() };
 
-  const source = resolveInsideRoots(sourcePath, ctx);
+  const { file: source } = resolveInsideRoots(sourcePath, ctx);
   const html = readFileSync(source, "utf8");
   const baseDir = dirname(source);
 
@@ -100,16 +130,10 @@ export function embedPage(
   const output = Buffer.from(applyEdits(html, edits), "utf8");
   if (output.length > limits.maxPageBytes) {
     throw new Error(
-      `埋め込んだ後のページが上限 ${limits.maxPageBytes} バイトを超えます（${output.length} バイト）: ${sourcePath}`,
+      `埋め込んだ後のページが上限 ${limits.maxPageBytes} バイトを超えます（${output.length} バイト）`,
     );
   }
   return { html: output, warnings: ctx.warnings };
-}
-
-interface Context {
-  roots: string[];
-  limits: EmbedLimits;
-  warnings: string[];
 }
 
 function walk(node: ParentNode, visit: (element: Element) => void): void {
@@ -139,7 +163,7 @@ function collectEdits(
     if (!attrLocation) continue;
 
     const rewritten = rewriteAttribute(element, name, attr.value, baseDir, ctx);
-    if (rewritten === undefined || rewritten === attr.value) continue;
+    if (rewritten === attr.value) continue;
     edits.push({
       start: attrLocation.startOffset,
       end: attrLocation.endOffset,
@@ -148,13 +172,12 @@ function collectEdits(
   }
 
   if (element.tagName === "style") {
-    const text = element.childNodes[0];
-    const textLocation = text?.sourceCodeLocation;
+    const textLocation = element.childNodes[0]?.sourceCodeLocation;
     if (textLocation) {
       // パーサーの値ではなく元の文字列を使う。<style> の中身は実体参照を解釈しないので両者は同じだが、
       // 書き換える範囲と中身の出どころを 1 つにそろえておく。
       const css = html.slice(textLocation.startOffset, textLocation.endOffset);
-      const rewritten = rewriteCss(css, baseDir, ctx, []);
+      const rewritten = rewriteCss(css, baseDir, ctx);
       if (rewritten !== css) {
         edits.push({
           start: textLocation.startOffset,
@@ -166,34 +189,37 @@ function collectEdits(
   }
 }
 
+/** 書き換えないときは value をそのまま返す。 */
 function rewriteAttribute(
   element: Element,
   name: string,
   value: string,
   baseDir: string,
   ctx: Context,
-): string | undefined {
-  const tag = element.tagName;
-  if (name === "style") return rewriteCss(value, baseDir, ctx, []);
-  if (name === "srcset" && SRCSET_ELEMENTS.has(tag)) return rewriteSrcset(value, baseDir, ctx);
-  if (tag === "link" && name === "href") {
-    const rels = (element.attrs.find((a) => a.name === "rel")?.value ?? "")
-      .toLowerCase()
-      .split(/\s+/);
-    if (!rels.some((rel) => EMBEDDED_LINK_RELS.has(rel))) return undefined;
-    return rewriteUrl(value, baseDir, ctx);
-  }
-  if (tag === "use" && (name === "href" || name === "xlink:href")) {
-    // Chrome は <use> の data: URL を描画しない。別ファイルのままでは署名がなく 403 になるので、止める。
-    if (classifyReference(value).kind === "local") {
-      throw new Error(
-        `<use> は別ファイルの SVG を参照できません。SVG をページに直接書いてください: ${value}`,
-      );
+): string {
+  if (name === "style") return rewriteCss(value, baseDir, ctx);
+  switch (ATTRIBUTE_HANDLING[element.tagName]?.[name]) {
+    case "url":
+      return embedReference(value, baseDir, ctx) ?? value;
+    case "srcset":
+      return rewriteSrcset(value, baseDir, ctx);
+    case "link": {
+      const rels = (element.attrs.find((a) => a.name === "rel")?.value ?? "")
+        .toLowerCase()
+        .split(/\s+/);
+      if (!rels.some((rel) => EMBEDDED_LINK_RELS.has(rel))) return value;
+      return embedReference(value, baseDir, ctx) ?? value;
     }
-    return undefined;
+    case "reject-local":
+      if (classifyReference(value).kind === "local") {
+        throw new Error(
+          `<use> は別ファイルの SVG を参照できません。SVG をページに直接書いてください: ${value}`,
+        );
+      }
+      return value;
+    case undefined:
+      return value;
   }
-  if (URL_ATTRIBUTES[tag]?.includes(name)) return rewriteUrl(value, baseDir, ctx);
-  return undefined;
 }
 
 type Reference =
@@ -229,20 +255,26 @@ export function classifyReference(raw: string): Reference {
   return { kind: "local", path, fragment };
 }
 
-function rewriteUrl(value: string, baseDir: string, ctx: Context): string {
-  const ref = classifyReference(value);
-  if (ref.kind === "keep") return value;
+/** 手元のファイルなら data URI を返す。残す参照と外部の URL（警告を積む）は undefined。 */
+function embedReference(
+  raw: string,
+  baseDir: string,
+  ctx: Context,
+  stack: readonly string[] = [],
+): string | undefined {
+  const ref = classifyReference(raw);
+  if (ref.kind === "keep") return undefined;
   if (ref.kind === "external") {
     ctx.warnings.push(`外部の URL は CSP で読み込めません: ${ref.url}`);
-    return value;
+    return undefined;
   }
-  return dataUriFor(resolve(baseDir, ref.path), ctx, []) + ref.fragment;
+  return dataUriFor(resolve(baseDir, ref.path), ctx, stack) + ref.fragment;
 }
 
 function rewriteSrcset(value: string, baseDir: string, ctx: Context): string {
   return parseSrcset(value)
     .map(({ url, descriptors }) =>
-      [rewriteUrl(url, baseDir, ctx), descriptors].filter((s) => s !== "").join(" "),
+      [embedReference(url, baseDir, ctx) ?? url, descriptors].filter((s) => s !== "").join(" "),
     )
     .join(", ");
 }
@@ -283,60 +315,68 @@ const CSS_TOKEN =
  * CSS の中の相対パスは、その CSS ファイルを起点に解決する。
  * data URI にした CSS からは元の置き場所がわからず、相対パスを解決できなくなるため、先に埋め込む。
  */
-function rewriteCss(css: string, baseDir: string, ctx: Context, stack: string[]): string {
+function rewriteCss(
+  css: string,
+  baseDir: string,
+  ctx: Context,
+  stack: readonly string[] = [],
+): string {
   return css.replace(CSS_TOKEN, (match, importDq, importSq, urlDq, urlSq, urlBare) => {
     if (match.startsWith("/*")) return match;
     const isImport = importDq !== undefined || importSq !== undefined;
     const raw: string = importDq ?? importSq ?? urlDq ?? urlSq ?? urlBare ?? "";
-    const ref = classifyReference(raw);
-    if (ref.kind === "keep") return match;
-    if (ref.kind === "external") {
-      ctx.warnings.push(`外部の URL は CSP で読み込めません: ${ref.url}`);
-      return match;
-    }
-    const uri = dataUriFor(resolve(baseDir, ref.path), ctx, stack) + ref.fragment;
+    const uri = embedReference(raw, baseDir, ctx, stack);
+    if (uri === undefined) return match;
     return isImport ? `@import url("${uri}")` : `url("${uri}")`;
   });
 }
 
-function dataUriFor(candidate: string, ctx: Context, stack: string[]): string {
-  const file = resolveInsideRoots(candidate, ctx);
+function dataUriFor(candidate: string, ctx: Context, stack: readonly string[]): string {
+  const { file, size } = resolveInsideRoots(candidate, ctx);
+  // 循環の判定はキャッシュより先に行う。キャッシュに入るのは、最後まで埋め込めた CSS だけ。
+  if (stack.includes(file)) throw new Error(`CSS の @import が循環しています: ${candidate}`);
+  const cached = ctx.cache.get(file);
+  if (cached !== undefined) return cached;
+
   const mime = MIME_TYPES[extname(file).toLowerCase()];
   if (!mime) {
     throw new Error(`埋め込めない種類のファイルです（拡張子で判定）: ${candidate}`);
   }
-  const size = statSync(file).size;
   if (size > ctx.limits.maxAssetBytes) {
     throw new Error(
       `素材が上限 ${ctx.limits.maxAssetBytes} バイトを超えます（${size} バイト）: ${candidate}`,
     );
   }
 
+  let uri: string;
   if (mime === "text/css") {
-    if (stack.includes(file)) throw new Error(`CSS の @import が循環しています: ${candidate}`);
     const css = rewriteCss(readFileSync(file, "utf8"), dirname(file), ctx, [...stack, file]);
-    return `data:text/css;charset=utf-8;base64,${Buffer.from(css, "utf8").toString("base64")}`;
+    uri = `data:text/css;charset=utf-8;base64,${Buffer.from(css, "utf8").toString("base64")}`;
+  } else {
+    // 中の import は解決しないので、JS は 1 ファイルにまとめてある前提（README の「制約」）。
+    uri = `data:${mime};base64,${readFileSync(file).toString("base64")}`;
   }
-  // 中の import は解決しないので、JS は 1 ファイルにまとめてある前提（README の「制約」）。
-  return `data:${mime};base64,${readFileSync(file).toString("base64")}`;
+  ctx.cache.set(file, uri);
+  return uri;
 }
 
 /**
  * シンボリックリンクをたどった先で判定する。リンクでルートの外（~/.ssh など）を指されても、
  * 中身をページに入れて公開しないため。
  */
-function resolveInsideRoots(candidate: string, ctx: Context): string {
-  let real: string;
+function resolveInsideRoots(candidate: string, ctx: Context): { file: string; size: number } {
+  let file: string;
   try {
-    real = realpathSync(candidate);
+    file = realpathSync(candidate);
   } catch {
     throw new Error(`ファイルが見つかりません: ${candidate}`);
   }
-  if (!ctx.roots.some((root) => isInside(real, root))) {
+  if (!ctx.roots.some((root) => isInside(file, root))) {
     throw new Error(`設定の roots の外にあるファイルは使えません: ${candidate}`);
   }
-  if (!statSync(real).isFile()) throw new Error(`ファイルではありません: ${candidate}`);
-  return real;
+  const stat = statSync(file);
+  if (!stat.isFile()) throw new Error(`ファイルではありません: ${candidate}`);
+  return { file, size: stat.size };
 }
 
 function isInside(file: string, root: string): boolean {
@@ -348,10 +388,14 @@ function escapeAttribute(value: string): string {
   return value.replaceAll("&", "&amp;").replaceAll('"', "&quot;");
 }
 
-function applyEdits(html: string, edits: Edit[]): string {
-  let result = html;
-  for (const edit of [...edits].sort((a, b) => b.start - a.start)) {
-    result = result.slice(0, edit.start) + edit.text + result.slice(edit.end);
+/** 位置の昇順に一度だけたどる。後ろから 1 つずつ差し替えると、編集のたびにページ全体を写すため。 */
+function applyEdits(html: string, edits: readonly Edit[]): string {
+  const parts: string[] = [];
+  let cursor = 0;
+  for (const edit of [...edits].sort((a, b) => a.start - b.start)) {
+    parts.push(html.slice(cursor, edit.start), edit.text);
+    cursor = edit.end;
   }
-  return result;
+  parts.push(html.slice(cursor));
+  return parts.join("");
 }

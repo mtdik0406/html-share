@@ -15,7 +15,7 @@ export interface SyncPlan {
 }
 
 /** S3 のページのうち、この割合以上を一度に消す同期は、明示しない限り実行しない。 */
-export const MASS_DELETE_RATIO = 0.2;
+const MASS_DELETE_RATIO = 0.2;
 
 /**
  * 手元を正として、S3 を手元と同じにするための操作を決める。

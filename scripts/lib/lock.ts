@@ -28,7 +28,7 @@ export function acquireLock(lockDir: string): () => void {
 
 function tryCreate(lockDir: string): boolean {
   try {
-    mkdirSync(lockDir, { recursive: false });
+    mkdirSync(lockDir);
   } catch (err) {
     if ((err as NodeJS.ErrnoException).code === "EEXIST") return false;
     throw err;
