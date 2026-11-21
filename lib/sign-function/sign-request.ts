@@ -45,7 +45,8 @@ export function createSignHandler(deps: SignHandlerDeps): (event: unknown) => Pr
 
   return async (event) => {
     const { slug, lifetimeMs } = parseRequest(event);
-    const expiresAt = new Date(deps.now().getTime() + lifetimeMs);
+    // URL の Expires は秒単位で、署名の処理は四捨五入する。切り捨ててから渡し、上限を越えず、返す期限とも一致させる。
+    const expiresAt = new Date(Math.floor((deps.now().getTime() + lifetimeMs) / 1000) * 1000);
     const url = signPageUrl({
       distributionDomainName: deps.distributionDomainName,
       slug,

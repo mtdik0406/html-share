@@ -79,6 +79,14 @@ describe("createSignHandler", () => {
     }
   });
 
+  it("期限は秒に切り捨て、返す期限と URL の Expires を一致させる", async () => {
+    const { handler } = handlerWith({ now: () => new Date(NOW.getTime() + 700) });
+    const result = await handler({ slug: "page-a", lifetimeMs: MAX_DAYS * DAY_MS });
+    const expected = NOW.getTime() + MAX_DAYS * DAY_MS;
+    assert.equal(result.expiresAt, new Date(expected).toISOString());
+    assert.equal(Number(new URL(result.url).searchParams.get("Expires")) * 1000, expected);
+  });
+
   it("鍵は最初の呼び出しで 1 回だけ読む", async () => {
     const { handler, loads } = handlerWith();
     await handler({ slug: "page-a", lifetimeMs: DAY_MS });
