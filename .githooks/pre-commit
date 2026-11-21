@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# 型・lint・テストが通らないコミットを作らない。~/.gitconfig の hook（gitleaks など）とは別に、並んで動く。
+set -euo pipefail
+pnpm run check

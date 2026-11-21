@@ -1,0 +1,31 @@
+name: check
+
+on:
+  push:
+  pull_request:
+
+# 書き込みの権限は要らない。
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # engines の下限と、手元で使っている版。
+        node: [22, 24]
+    steps:
+      # action はタグではなくコミットで固定する。タグは付け替えられるため。
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ matrix.node }}
+          # キャッシュは使わない。毎回 lockfile から入れ直す。
+          package-manager-cache: false
+      # pnpm の版は package.json の packageManager に従う。
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run check

@@ -90,6 +90,14 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 
 ## 開発
 
+検査は次の 3 か所で自動で実行される。通らない変更は、コミットも push もしない。
+
+- コミットの前（`.githooks/pre-commit`）。`pnpm install` で `core.hooksPath` が設定される
+- push と PR の CI（`.github/workflows/check.yml`）
+- Claude Code で作業するとき（`.claude/settings.json`）。編集のたびに Biome で整え、作業を終える前に `pnpm run check` を通す
+
+テストは網羅率（行 95%・分岐 90%・関数 95%）を下回ると失敗する。測るのはテストが読み込むファイルだけで、AWS を呼ぶ入口のスクリプトは含まない。
+
 ```sh
 pnpm run check        # 型チェック・lint・テストをまとめて実行する
 pnpm run format       # 書式を直す
@@ -105,6 +113,8 @@ pnpm exec cdk diff    # AWS 上の今の状態との差分を見る
 | `scripts/lib/` | CLI が使う部品。AWS を呼ばない純粋な関数は、ここに分けてテストする |
 | `test/`        | スタックの安全性の不変条件と、純粋な関数の境界値のテスト           |
 | `samples/`     | 動作確認用の HTML                                                  |
+| `.githooks/`   | コミットの前に `pnpm run check` を実行する hook                    |
+| `.claude/`     | Claude Code の hook（編集後の整形と、終える前の検査）              |
 
 ## 片付け
 
