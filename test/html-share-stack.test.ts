@@ -12,7 +12,6 @@ import { MIME_TYPES } from "../scripts/lib/embed.js";
 // biome-ignore lint/suspicious/noExplicitAny: CloudFormation テンプレートは任意の JSON
 type Json = any;
 
-/** 値の中に現れる Ref の参照先（論理 ID）をすべて集める。 */
 function refsIn(value: Json): string[] {
   if (Array.isArray(value)) return value.flatMap(refsIn);
   if (value && typeof value === "object") {

@@ -13,10 +13,7 @@ export interface SyncConfig {
   pages: PageEntry[];
 }
 
-/**
- * パスは設定ファイルのあるディレクトリからの相対で解決し、先頭の ~/ はホームに置き換える。
- * 知らないキーはエラーにする。綴りの誤り（"page" など）で設定が黙って無視されるのを防ぐため。
- */
+/** 知らないキーはエラーにする。綴りの誤り（"page" など）で設定が黙って無視されるのを防ぐため。 */
 export function parseConfig(
   text: string,
   configDir: string,

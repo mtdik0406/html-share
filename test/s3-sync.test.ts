@@ -4,7 +4,6 @@ import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand } from "@a
 import { applyPlan, listRemote, type S3Sender } from "../scripts/lib/s3-sync.js";
 import type { SyncPlan } from "../scripts/lib/sync-plan.js";
 
-/** 送られたコマンドを記録し、種類ごとに決めた応答を返す偽物。 */
 function fakeS3(respond: (command: object) => unknown = () => ({})) {
   const sent: object[] = [];
   const s3: S3Sender = {

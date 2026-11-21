@@ -62,8 +62,6 @@ export interface EmbedResult {
 }
 
 /**
- * - url: 素材の URL を 1 つ持つ
- * - srcset: 「URL 記述子」の候補を並べる
  * - link: rel が EMBEDDED_LINK_RELS のときだけ url と同じ。ほかの rel（canonical など）は素材ではない
  * - reject-local: Chrome は <use> の data: URL を描画しない。別ファイルのままでは署名がなく 403 になるので、止める
  *
@@ -99,10 +97,7 @@ interface Context {
   cache: Map<string, string>;
 }
 
-/**
- * HTML が相対パスで読む素材を data URI にして、1 ファイルで完結させる。
- * 署名付き URL は URL ごとに効くので、別のファイルとして置いた素材は 403 になるため。
- */
+/** 署名付き URL は URL ごとに効くので、別のファイルとして置いた素材は 403 になる。だから 1 ファイルにまとめる。 */
 export function embedPage(
   sourcePath: string,
   roots: readonly string[],
@@ -214,7 +209,6 @@ function collectEdits(
   }
 }
 
-/** 書き換えないときは value をそのまま返す。 */
 function rewriteAttribute(
   element: Element,
   name: string,
@@ -278,7 +272,6 @@ type Reference =
   | { kind: "external"; url: string }
   | { kind: "local"; path: string; fragment: string };
 
-/** 素材の参照を、そのまま残すもの・外部の URL・手元のファイルに分ける。 */
 export function classifyReference(raw: string): Reference {
   const value = raw.trim();
   if (value === "" || value.startsWith("#")) return { kind: "keep" };

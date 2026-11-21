@@ -10,9 +10,6 @@ export interface HtmlShareStackProps extends StackProps {
   readonly publicKeyPem: string;
 }
 
-/**
- *   閲覧者 ──(署名付き URL)──▶ CloudFront ──(OAC)──▶ S3（非公開）
- */
 export class HtmlShareStack extends Stack {
   constructor(scope: Construct, id: string, props: HtmlShareStackProps) {
     super(scope, id, props);

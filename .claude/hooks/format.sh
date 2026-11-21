@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code の PostToolUse（Write|Edit）から呼ばれる。編集したファイルを Biome で整える。
+# Claude Code の PostToolUse（Write|Edit）から呼ばれる。
 # リポジトリの外のファイル（エージェントのメモリなど）には触れない。
 set -euo pipefail
 file=$(jq -r '.tool_input.file_path // .tool_response.filePath // empty')

@@ -1,4 +1,3 @@
-/** 先頭 1 文字 ＋ 残り 0〜63 文字 ＝ 最大 64 文字 */
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
 
 /** URL のパスと S3 のキーにそのまま入るので、`/` や `..` でパスを抜け出せない文字だけに絞る。 */
@@ -22,7 +21,6 @@ export function pageUrl(distributionDomainName: string, slug: string): string {
   return `https://${distributionDomainName}/${pageKey(slug)}`;
 }
 
-/** pageKey の逆。同期が扱う形でないキーは undefined。 */
 export function slugOfKey(key: string): string | undefined {
   const slug = key.slice(PAGES_PREFIX.length, -"/index.html".length);
   return key === pageKey(slug) && SLUG_PATTERN.test(slug) ? slug : undefined;

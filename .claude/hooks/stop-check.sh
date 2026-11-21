@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Claude Code の Stop から呼ばれる。作業ツリーに変更があれば pnpm run check を実行し、
-# 失敗したら終わらせずに、出力を Claude に返して直させる。
+# Claude Code の Stop から呼ばれる。
 set -uo pipefail
 input=$(cat)
 root=${CLAUDE_PROJECT_DIR:-$(pwd)}
