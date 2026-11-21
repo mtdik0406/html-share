@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import {
   changedLines,
   guardedFiles,
+  mutationTargets,
   reviewScope,
   survivorsOnChangedLines,
   wholeFiles,
@@ -135,5 +136,56 @@ describe("survivorsOnChangedLines", () => {
 describe("wholeFiles", () => {
   it("指定したファイルの、すべての行を変えた行とみなす", () => {
     assert.deepEqual(wholeFiles({ "a.ts": "x\ny\nz" }), new Map([["a.ts", new Set([1, 2, 3])]]));
+  });
+});
+
+describe("mutationTargets", () => {
+  const sources = [
+    "lib/html-share-stack.ts",
+    "lib/sign-function/sign-request.ts",
+    "scripts/lib/embed.ts",
+    "tools/lib/review-scope.ts",
+  ];
+
+  it("変えたソースのうち、変異の対象のものだけを選ぶ", () => {
+    assert.deepEqual(
+      mutationTargets(
+        ["scripts/lib/embed.ts", "scripts/sync.ts", "README.md", "lib/gone.ts"],
+        sources,
+      ),
+      ["scripts/lib/embed.ts"],
+    );
+  });
+
+  it("変えたテストと同じ名前のソースも選ぶ", () => {
+    assert.deepEqual(
+      mutationTargets(["test/sign-request.test.ts", "test/html-share-stack.test.ts"], sources),
+      ["lib/html-share-stack.ts", "lib/sign-function/sign-request.ts"],
+    );
+  });
+
+  it("同じファイルは 1 回だけ、並びをそろえて返す", () => {
+    assert.deepEqual(
+      mutationTargets(
+        ["tools/lib/review-scope.ts", "test/review-scope.test.ts", "lib/html-share-stack.ts"],
+        [...sources].reverse(),
+      ),
+      ["lib/html-share-stack.ts", "tools/lib/review-scope.ts"],
+    );
+  });
+
+  it("対応するソースのないテストや helper は選ばない", () => {
+    assert.deepEqual(
+      mutationTargets(
+        [
+          "test/helpers/keys.ts",
+          "test/tdd-red.test.ts",
+          "docs/test/embed.test.ts",
+          "test/embed.test.ts.orig",
+        ],
+        sources,
+      ),
+      [],
+    );
   });
 });

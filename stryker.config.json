@@ -13,5 +13,6 @@
     "low": 80,
     "break": 79
   },
-  "ignorers": ["messages"]
+  "ignorers": ["messages"],
+  "incremental": true
 }

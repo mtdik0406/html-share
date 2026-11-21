@@ -27,6 +27,7 @@
     "format": "biome check --write .",
     "test": "tsx --test --experimental-test-coverage --test-coverage-include=\"scripts/**\" --test-coverage-include=\"lib/**\" --test-coverage-include=\"tools/**\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"test/**/*.test.ts\"",
     "test:mutation": "stryker run",
+    "test:mutation:scope": "tsx tools/mutation-scope.ts",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run lint:repo && pnpm run lint:unused && pnpm run lint:duplicate && pnpm run test"
   },
   "devDependencies": {

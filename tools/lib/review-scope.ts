@@ -95,3 +95,21 @@ export function wholeFiles(contents: Record<string, string>): Map<string, Set<nu
     ]),
   );
 }
+
+/**
+ * 変異テストを流すファイル。変えたソースと、変えたテストと同じ名前のソース。
+ * sources は、変異の対象のファイルの一覧（stryker.config.json の mutate に当たるもの）。
+ */
+export function mutationTargets(changed: readonly string[], sources: readonly string[]): string[] {
+  const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
+  const testedNames = new Set(
+    changed.flatMap((file) => {
+      const match = /^test\/([^/]+)\.test\.ts$/.exec(file);
+      // Stryker disable next-line ArrayDeclaration: ソースの名前に当たらない値が入っても、選ぶものは同じ
+      return match ? [`${match[1]}.ts`] : [];
+    }),
+  );
+  return sources
+    .filter((source) => changed.includes(source) || testedNames.has(baseName(source)))
+    .sort();
+}

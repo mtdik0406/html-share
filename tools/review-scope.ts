@@ -1,14 +1,7 @@
-import { execFileSync } from "node:child_process";
+import { changedFiles } from "./changed-files.js";
 import { guardedFiles, reviewScope } from "./lib/review-scope.js";
 
-const lines = (...args: string[]) =>
-  execFileSync("git", args, { encoding: "utf8" })
-    .split("\n")
-    .filter((line) => line !== "");
-
-const branchDiff = lines("diff", "--name-only", "main...HEAD");
-const uncommitted = lines("diff", "--name-only", "HEAD");
-const untracked = lines("ls-files", "--others", "--exclude-standard");
+const { branchDiff, uncommitted, untracked } = changedFiles();
 const changed = [...branchDiff, ...uncommitted, ...untracked];
 const guarded = [...new Set(guardedFiles(changed))].sort();
 
