@@ -1,17 +1,14 @@
 // CloudFront と同じ手順で署名を検証し、配った URL が受け入れられるか・改ざんが弾かれるかを確かめる。
 import assert from "node:assert/strict";
-import { createVerify, generateKeyPairSync } from "node:crypto";
+import { createVerify } from "node:crypto";
 import { describe, it } from "node:test";
 import { pageKey } from "../scripts/lib/page.js";
 import { signPageUrl } from "../scripts/lib/signed-url.js";
+import { generateTestKeyPair, TEST_DOMAIN, TEST_KEY_PAIR_ID } from "./helpers/keys.js";
 
-const { publicKey, privateKey } = generateKeyPairSync("rsa", {
-  modulusLength: 2048,
-  publicKeyEncoding: { type: "spki", format: "pem" },
-  privateKeyEncoding: { type: "pkcs8", format: "pem" },
-});
-const DOMAIN = "d111.cloudfront.net";
-const KEY_PAIR_ID = "K2TESTKEYPAIRID";
+const { publicKey, privateKey } = generateTestKeyPair();
+const DOMAIN = TEST_DOMAIN;
+const KEY_PAIR_ID = TEST_KEY_PAIR_ID;
 // Expires は秒単位なので、丸めの影響を受けない秒ちょうどの時刻を使う。
 const EXPIRES_AT = new Date("2030-01-01T00:00:00Z");
 
@@ -81,11 +78,7 @@ describe("signPageUrl", () => {
   });
 
   it("別の秘密鍵で署名した URL は拒否される", () => {
-    const { privateKey: otherKey } = generateKeyPairSync("rsa", {
-      modulusLength: 2048,
-      privateKeyEncoding: { type: "pkcs8", format: "pem" },
-      publicKeyEncoding: { type: "spki", format: "pem" },
-    });
+    const { privateKey: otherKey } = generateTestKeyPair();
     const forged = signPageUrl({
       distributionDomainName: DOMAIN,
       slug: "page-a",
