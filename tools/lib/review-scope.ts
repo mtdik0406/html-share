@@ -5,7 +5,7 @@ const WHOLE_CODEBASE = ["scripts/", "lib/", "bin/", "tools/", "test/"];
  * 変えるにはユーザーの判断が要るファイル。検査の設定と検査そのもの、作業の規則、設計の判断。
  * 末尾が / のものはディレクトリ。
  */
-export const GUARDED_PATHS: readonly string[] = [
+const GUARDED_PATHS: readonly string[] = [
   "biome.json",
   "knip.jsonc",
   "stryker.config.json",

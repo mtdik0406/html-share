@@ -3,7 +3,6 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   changedLines,
-  GUARDED_PATHS,
   guardedFiles,
   reviewScope,
   survivorsOnChangedLines,
@@ -46,25 +45,20 @@ describe("guardedFiles", () => {
 });
 
 describe(".claude/settings.json", () => {
-  it("検査・規則・設計の判断のファイルを Claude Code が編集するときは、ユーザーに確認する", () => {
-    const settings = JSON.parse(readFileSync(".claude/settings.json", "utf8"));
-    const ask: string[] = settings.permissions.ask;
-    for (const path of GUARDED_PATHS) {
-      const rule = path.endsWith("/") ? `Edit(/${path}**)` : `Edit(/${path})`;
-      assert.ok(ask.includes(rule), `${rule} がない`);
-    }
+  const permissions = JSON.parse(readFileSync(".claude/settings.json", "utf8")).permissions;
+
+  it("確認を求めるのは、外へ出る操作と本番を変える操作だけ（ほかは自律して進める）", () => {
+    assert.deepEqual([...permissions.ask].sort(), [
+      "Bash(aws *)",
+      "Bash(git push *)",
+      "Bash(pnpm exec cdk deploy *)",
+      "Bash(pnpm run sync *)",
+    ]);
   });
 
-  for (const command of [
-    "git push *",
-    "aws *",
-    "pnpm exec cdk deploy *",
-    "pnpm exec cdk destroy *",
-    "pnpm run sync *",
-  ]) {
-    it(`${command} は、実行する前にユーザーに確認する`, () => {
-      const settings = JSON.parse(readFileSync(".claude/settings.json", "utf8"));
-      assert.ok(settings.permissions.ask.includes(`Bash(${command})`));
+  for (const rule of ["Read(/.keys/**)", "Bash(pnpm exec cdk destroy *)", "Bash(cdk destroy *)"]) {
+    it(`${rule} は禁止する（秘密鍵を出力に出さない、元に戻せない削除をしない）`, () => {
+      assert.ok((permissions.deny ?? []).includes(rule));
     });
   }
 });
