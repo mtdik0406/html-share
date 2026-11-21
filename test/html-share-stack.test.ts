@@ -478,6 +478,19 @@ describe("HtmlShareStack", () => {
       assert.ok(!resources.includes(`:parameter${signingKeyParameterName(1)}"`), resources);
     });
 
+    it("世代を変えると、キーグループと署名の Lambda は新しい公開鍵を指す", () => {
+      const second = templateFor(2);
+      const [publicKeyId] = publicKeyIds(second);
+      const [keyGroup] = Object.values(second.findResources("AWS::CloudFront::KeyGroup"));
+      assert.deepEqual(refsIn(keyGroup?.Properties.KeyGroupConfig.Items), [publicKeyId]);
+      const fn = Object.values(second.findResources("AWS::Lambda::Function")).find(
+        (f) => f.Properties.Environment?.Variables?.[SIGN_FUNCTION_ENV.keyPairId],
+      );
+      assert.deepEqual(refsIn(fn?.Properties.Environment.Variables[SIGN_FUNCTION_ENV.keyPairId]), [
+        publicKeyId,
+      ]);
+    });
+
     it("世代が 1 以上の整数でなければ、スタックを作らない", () => {
       for (const signingKeyGeneration of [0, -1, 1.5, Number.NaN]) {
         assert.throws(() => templateFor(signingKeyGeneration));
