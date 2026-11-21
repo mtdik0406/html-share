@@ -3,28 +3,16 @@ import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
-import {
-  DeleteObjectsCommand,
-  PutObjectCommand,
-  paginateListObjectsV2,
-  S3Client,
-} from "@aws-sdk/client-s3";
+import { S3Client } from "@aws-sdk/client-s3";
 import { runCli } from "./lib/cli.js";
 import { parseConfig } from "./lib/config.js";
 import { embedPage } from "./lib/embed.js";
 import { acquireLock } from "./lib/lock.js";
 import { PAGES_PREFIX, pageKey } from "./lib/page.js";
 import { DEFAULT_CONFIG_PATH, LOCK_DIR } from "./lib/paths.js";
+import { applyPlan, listRemote } from "./lib/s3-sync.js";
 import { readStackOutputs } from "./lib/stack-outputs.js";
-import {
-  assertSafeToApply,
-  type LocalObject,
-  planSync,
-  type RemoteObject,
-} from "./lib/sync-plan.js";
-
-/** DeleteObjects が 1 回で受け付けるキーの上限。 */
-const DELETE_BATCH_SIZE = 1000;
+import { assertSafeToApply, type LocalObject, planSync } from "./lib/sync-plan.js";
 
 await runCli(async () => {
   const { positionals, values } = parseArgs({
@@ -64,7 +52,7 @@ await runCli(async () => {
 
     const { bucketName } = await readStackOutputs();
     const s3 = new S3Client({});
-    const remote = await listRemote(s3, bucketName);
+    const remote = await listRemote(s3, bucketName, PAGES_PREFIX);
     const plan = planSync(local, remote);
 
     for (const key of plan.add) console.log(`add       ${key}`);
@@ -78,20 +66,7 @@ await runCli(async () => {
       return;
     }
 
-    // 置いてから消す。途中で失敗しても、公開するはずのページが欠けた状態にしないため。
-    for (const key of [...plan.add, ...plan.update]) {
-      await s3.send(
-        new PutObjectCommand({
-          Bucket: bucketName,
-          Key: key,
-          Body: bodies.get(key),
-          // 付けないと application/octet-stream になり、ブラウザが表示せずにダウンロードする。
-          // charset を付けないと、日本語が化けることがある。
-          ContentType: "text/html; charset=utf-8",
-        }),
-      );
-    }
-    await deleteKeys(s3, bucketName, plan.remove);
+    await applyPlan(s3, bucketName, plan, bodies);
 
     console.log(
       `完了: add ${plan.add.length}, update ${plan.update.length}, delete ${plan.remove.length}`,
@@ -100,33 +75,3 @@ await runCli(async () => {
     release();
   }
 });
-
-async function listRemote(s3: S3Client, bucket: string): Promise<RemoteObject[]> {
-  const objects: RemoteObject[] = [];
-  for await (const page of paginateListObjectsV2(
-    { client: s3 },
-    { Bucket: bucket, Prefix: PAGES_PREFIX },
-  )) {
-    for (const o of page.Contents ?? []) {
-      if (o.Key && o.ETag) objects.push({ key: o.Key, etag: o.ETag });
-    }
-  }
-  return objects;
-}
-
-async function deleteKeys(s3: S3Client, bucket: string, keys: string[]): Promise<void> {
-  for (let i = 0; i < keys.length; i += DELETE_BATCH_SIZE) {
-    const batch = keys.slice(i, i + DELETE_BATCH_SIZE);
-    const res = await s3.send(
-      new DeleteObjectsCommand({
-        Bucket: bucket,
-        Delete: { Objects: batch.map((Key) => ({ Key })), Quiet: true },
-      }),
-    );
-    // 一部のキーが消せなくても、応答は 200 で、失敗は Errors に入るだけ。
-    if (res.Errors && res.Errors.length > 0) {
-      const detail = res.Errors.map((e) => `${e.Key}: ${e.Code}`).join(", ");
-      throw new Error(`消せなかったページがあります: ${detail}`);
-    }
-  }
-}
