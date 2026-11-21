@@ -3,6 +3,7 @@
   // cdk.json の app から起動するので、knip は入口と見なさない。
   "entry": ["bin/app.ts", "scripts/*.ts", "tools/*.ts"],
   "project": ["bin/**/*.ts", "lib/**/*.ts", "scripts/**/*.ts", "tools/**/*.ts", "test/**/*.ts"],
-  // `pnpm exec cdk` で使う CLI。package.json の scripts からは呼ばない。
-  "ignoreDependencies": ["aws-cdk"]
+  // aws-cdk は `pnpm exec cdk` で使う CLI。package.json の scripts からは呼ばない。
+  // esbuild は、NodejsFunction が synth のときに探して使う。コードからは import しない。
+  "ignoreDependencies": ["aws-cdk", "esbuild"]
 }

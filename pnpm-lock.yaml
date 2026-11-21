@@ -178,6 +178,9 @@ importers:
       '@aws-sdk/client-cloudformation':
         specifier: ^3.1164.0
         version: 3.1164.0
+      '@aws-sdk/client-lambda':
+        specifier: ^3.1164.0
+        version: 3.1164.0
       '@aws-sdk/client-s3':
         specifier: ^3.1164.0
         version: 3.1164.0
@@ -215,6 +218,9 @@ importers:
       constructs:
         specifier: ^10.8.1
         version: 10.8.1
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       jscpd:
         specifier: ^5.4.2
         version: 5.4.2
@@ -249,6 +255,10 @@ packages:
 
   '@aws-sdk/client-cloudformation@3.1164.0':
     resolution: {integrity: sha512-snhKla88nyDkkKpXmyVniqZN7Mwp9/y9u4u9zSH+a7rPU1WfjuQL8L5m7DWcnXHdupAVBrTo6hxBznZb/IGdvw==}
+    engines: {node: '>=20.0.0'}
+
+  '@aws-sdk/client-lambda@3.1164.0':
+    resolution: {integrity: sha512-7R2QRIcbfXXKYc/BmSJLJk1BwANjJmewpnh9XF9U+r016SBFZTLQI9MezYtQDqb2P8KhzPtrwKp8uVTMUje1yg==}
     engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-s3@3.1164.0':
@@ -1820,6 +1830,17 @@ snapshots:
       tslib: 2.9.1
 
   '@aws-sdk/client-cloudformation@3.1164.0':
+    dependencies:
+      '@aws-sdk/core': 3.980.1
+      '@aws-sdk/credential-provider-node': 3.972.94
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.39.0
+      '@smithy/fetch-http-handler': 5.8.1
+      '@smithy/node-http-handler': 4.14.2
+      '@smithy/types': 4.20.0
+      tslib: 2.9.1
+
+  '@aws-sdk/client-lambda@3.1164.0':
     dependencies:
       '@aws-sdk/core': 3.980.1
       '@aws-sdk/credential-provider-node': 3.972.94

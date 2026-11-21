@@ -6,7 +6,15 @@ export const OUTPUT_KEYS = {
   bucketName: "BucketName",
   distributionDomainName: "DistributionDomainName",
   publicKeyId: "PublicKeyId",
+  signFunctionName: "SignFunctionName",
 } as const;
 
 /** 署名用の秘密鍵を置く SSM のパラメータ。CloudFormation は SecureString を作れないので、keys:store で置く。 */
 export const SIGNING_KEY_PARAMETER_NAME = "/html-share/signing-private-key";
+
+/** 署名の Lambda に渡す環境変数の名前。スタックと Lambda の入口で食い違わないよう、ここで決める。 */
+export const SIGN_FUNCTION_ENV = {
+  distributionDomainName: "DISTRIBUTION_DOMAIN_NAME",
+  keyPairId: "KEY_PAIR_ID",
+  parameterName: "SIGNING_KEY_PARAMETER_NAME",
+} as const;

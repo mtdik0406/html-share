@@ -6,7 +6,7 @@ import { before, describe, it } from "node:test";
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
-import { OUTPUT_KEYS } from "../lib/names.js";
+import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, SIGNING_KEY_PARAMETER_NAME } from "../lib/names.js";
 import { MIME_TYPES } from "../scripts/lib/embed.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: CloudFormation テンプレートは任意の JSON
@@ -216,6 +216,10 @@ describe("HtmlShareStack", () => {
     });
   };
 
+  /** ヘッダー名は大文字と小文字を区別しないので、小文字にそろえて引く。 */
+  const customHeadersOf = (config: Json): Map<string, Json> =>
+    new Map(config.CustomHeadersConfig.Items.map((h: Json) => [h.Header.toLowerCase(), h]));
+
   it("すべてのビヘイビアが、ページを sandbox に入れ、許す操作はスクリプトの実行だけ", () => {
     for (const config of responseHeadersPoliciesOfBehaviors()) {
       const csp = config.SecurityHeadersConfig.ContentSecurityPolicy;
@@ -278,9 +282,7 @@ describe("HtmlShareStack", () => {
 
   it("すべてのビヘイビアが、ブラウザに保存させず、検索エンジンに載せない", () => {
     for (const config of responseHeadersPoliciesOfBehaviors()) {
-      const headers = new Map<string, Json>(
-        config.CustomHeadersConfig.Items.map((h: Json) => [h.Header.toLowerCase(), h]),
-      );
+      const headers = customHeadersOf(config);
       const tokensOf = (name: string): string[] => headers.get(name)?.Value.split(/\s*,\s*/) ?? [];
       assert.ok(tokensOf("cache-control").includes("no-store"));
       assert.ok(tokensOf("x-robots-tag").includes("noindex"));
@@ -304,6 +306,69 @@ describe("HtmlShareStack", () => {
       assert.equal(frameOptions?.FrameOption, "DENY");
       assert.equal(frameOptions?.Override, true);
     }
+  });
+
+  it("すべてのビヘイビアが、ページを開いたウィンドウとつながらせず、端末の機能を使わせない", () => {
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      const headers = customHeadersOf(config);
+      assert.equal(headers.get("cross-origin-opener-policy")?.Value, "same-origin");
+      const permissions = new Map<string, string>(
+        (headers.get("permissions-policy")?.Value ?? "")
+          .split(/\s*,\s*/)
+          .map((entry: string) => entry.split("=") as [string, string]),
+      );
+      for (const feature of ["camera", "microphone", "geolocation", "display-capture", "usb"]) {
+        assert.equal(permissions.get(feature), "()", `${feature} を止めていない`);
+      }
+      for (const name of ["cross-origin-opener-policy", "permissions-policy"]) {
+        assert.equal(headers.get(name)?.Override, true, `${name} がオリジンの値に負ける`);
+      }
+    }
+  });
+
+  const signFunction = (): Json => {
+    const functions = Object.values(resourcesOf("AWS::Lambda::Function")).filter(
+      (f) => f.Properties.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName] !== undefined,
+    );
+    assert.equal(functions.length, 1, "署名の Lambda が 1 つでない");
+    return functions[0];
+  };
+
+  it("署名の Lambda は、このスタックの公開鍵の ID と Distribution のドメインで署名する", () => {
+    const variables = signFunction().Properties.Environment.Variables;
+    assert.equal(variables[SIGN_FUNCTION_ENV.parameterName], SIGNING_KEY_PARAMETER_NAME);
+    const publicKeyIds = Object.keys(resourcesOf("AWS::CloudFront::PublicKey"));
+    assert.deepEqual(refsIn(variables[SIGN_FUNCTION_ENV.keyPairId]), publicKeyIds);
+    const [distributionId] = Object.keys(resourcesOf("AWS::CloudFront::Distribution"));
+    assert.deepEqual(variables[SIGN_FUNCTION_ENV.distributionDomainName], {
+      "Fn::GetAtt": [distributionId, "DomainName"],
+    });
+  });
+
+  it("署名の Lambda は Node.js 26 で動く", () => {
+    assert.equal(signFunction().Properties.Runtime, "nodejs26.x");
+  });
+
+  it("署名の Lambda のロールに許すのは、鍵のパラメータを読むことだけ", () => {
+    // ロールは Fn::GetAtt [論理 ID, "Arn"] で参照される。
+    const roleId: string | undefined = signFunction().Properties.Role["Fn::GetAtt"]?.[0];
+    assert.ok(roleId, "ロールが見つからない");
+    const statements = Object.values(resourcesOf("AWS::IAM::Policy"))
+      .filter((p) => refsIn(p.Properties.Roles).includes(roleId))
+      .flatMap((p) => p.Properties.PolicyDocument.Statement);
+    assert.ok(statements.length > 0, "鍵を読む許可がない");
+    for (const statement of statements) {
+      assert.equal(statement.Effect, "Allow");
+      assert.deepEqual(asArray(statement.Action), ["ssm:GetParameter"]);
+      const resource = JSON.stringify(statement.Resource);
+      assert.ok(resource.includes(`:parameter${SIGNING_KEY_PARAMETER_NAME}"`), resource);
+      assert.ok(!resource.includes("*"), `Resource にワイルドカードがある: ${resource}`);
+    }
+    // 管理ポリシーは、ログを書くためのものだけ。
+    const role = resourcesOf("AWS::IAM::Role")[roleId];
+    const managed = JSON.stringify(role.Properties.ManagedPolicyArns ?? []);
+    assert.equal((managed.match(/policy\//g) ?? []).length, 1);
+    assert.ok(managed.includes("service-role/AWSLambdaBasicExecutionRole"));
   });
 
   it("スクリプトが読む出力を持つ", () => {

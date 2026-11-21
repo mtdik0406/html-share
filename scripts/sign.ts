@@ -1,12 +1,12 @@
-import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
+import { LambdaClient } from "@aws-sdk/client-lambda";
 import { runCli } from "./lib/cli.js";
 import { parseLifetimeMs } from "./lib/lifetime.js";
 import { assertSlug } from "./lib/page.js";
-import { PRIVATE_KEY_PATH } from "./lib/paths.js";
-import { signPageUrl } from "./lib/signed-url.js";
+import { requestSignedUrl } from "./lib/remote-sign.js";
 import { readStackOutputs } from "./lib/stack-outputs.js";
 
+// 手元の秘密鍵は読まない。署名は SSM の鍵を持つ Lambda が行う（ADR 9）。
 await runCli(async () => {
   const { positionals, values } = parseArgs({
     allowPositionals: true,
@@ -24,17 +24,12 @@ await runCli(async () => {
   assertSlug(slug);
   const lifetimeMs = parseLifetimeMs(values);
 
-  const { distributionDomainName, publicKeyId } = await readStackOutputs();
-  const expiresAt = new Date(Date.now() + lifetimeMs);
-
-  const signedUrl = signPageUrl({
-    distributionDomainName,
+  const { signFunctionName } = await readStackOutputs();
+  const { url, expiresAt } = await requestSignedUrl(new LambdaClient({}), signFunctionName, {
     slug,
-    keyPairId: publicKeyId,
-    privateKey: await readFile(PRIVATE_KEY_PATH),
-    expiresAt,
+    lifetimeMs,
   });
 
-  console.log(`expires: ${expiresAt.toISOString()}`);
-  console.log(signedUrl);
+  console.log(`expires: ${expiresAt}`);
+  console.log(url);
 });

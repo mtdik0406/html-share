@@ -17,5 +17,6 @@ export async function readStackOutputs(): Promise<StackOutputs> {
     bucketName: get(OUTPUT_KEYS.bucketName),
     distributionDomainName: get(OUTPUT_KEYS.distributionDomainName),
     publicKeyId: get(OUTPUT_KEYS.publicKeyId),
+    signFunctionName: get(OUTPUT_KEYS.signFunctionName),
   };
 }
