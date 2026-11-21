@@ -27,7 +27,13 @@ export async function listRemote(
       new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
     )) as ListObjectsV2CommandOutput;
     for (const o of res.Contents ?? []) {
-      if (o.Key && o.ETag) objects.push({ key: o.Key, etag: o.ETag });
+      if (o.Key && o.ETag) {
+        objects.push({
+          key: o.Key,
+          etag: o.ETag,
+          ...(o.LastModified ? { lastModified: o.LastModified } : {}),
+        });
+      }
     }
     token = res.IsTruncated ? res.NextContinuationToken : undefined;
   } while (token !== undefined);

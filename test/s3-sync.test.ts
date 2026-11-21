@@ -123,6 +123,17 @@ describe("listRemote", () => {
     assert.equal(sent.length, 2);
   });
 
+  it("更新時刻があれば、一緒に返す", async () => {
+    const at = new Date("2030-01-02T03:04:05Z");
+    const { s3 } = fakeS3(() => ({
+      Contents: [{ Key: "pages/a/index.html", ETag: '"1"', LastModified: at }],
+      IsTruncated: false,
+    }));
+    assert.deepEqual(await listRemote(s3, "bucket", "pages/"), [
+      { key: "pages/a/index.html", etag: '"1"', lastModified: at },
+    ]);
+  });
+
   it("中身が空のバケットでは空の一覧を返す", async () => {
     const { s3 } = fakeS3(() => ({ IsTruncated: false }));
     assert.deepEqual(await listRemote(s3, "bucket", "pages/"), []);

@@ -6,6 +6,8 @@ export interface LocalObject {
 export interface RemoteObject {
   key: string;
   etag: string;
+  /** 管理画面の一覧に出す。同期の計画には使わない。 */
+  lastModified?: Date;
 }
 
 export interface SyncPlan {
