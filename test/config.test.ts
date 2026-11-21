@@ -40,6 +40,8 @@ describe("parseConfig", () => {
       },
     ],
     ["知らないキー（綴りの誤り）", { roots: ["."], page: [] }],
+    ["ページがオブジェクトでない", { roots: ["."], pages: ["a.html"] }],
+    ["roots に文字列でない値", { roots: [1], pages: [] }],
     ["ページに知らないキー", { roots: ["."], pages: [{ slug: "a", source: "a.html", day: 3 }] }],
   ] as const) {
     it(`${label} はエラー`, () => {

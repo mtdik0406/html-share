@@ -67,6 +67,11 @@ function decodeDataUri(uri: string): { mime: string; body: string } {
   return { mime: match[1] ?? "", body: Buffer.from(match[2] ?? "", "base64").toString("utf8") };
 }
 
+/** 書き方（url("…")・@import url(…) など）に依らず、文字列に含まれる data URI を前から順に取り出す。 */
+function dataUrisIn(text: string): string[] {
+  return [...text.matchAll(/data:[^"')\s]+/g)].map((m) => m[0]);
+}
+
 describe("embedPage: 埋め込み", () => {
   it("img の相対パスを、元のファイルと同じ中身の data URI にする", () => {
     write("img/a.png", "PNGDATA");
@@ -92,8 +97,10 @@ describe("embedPage: 埋め込み", () => {
     const { html } = embed(page("", '<link rel="stylesheet" href="css/site.css">'));
     const css = decodeDataUri(attr(html, "link", "href") ?? "");
     assert.equal(css.mime, "text/css");
-    const inner = /url\("([^"]+)"\)/.exec(css.body)?.[1] ?? "";
-    assert.deepEqual(decodeDataUri(inner), { mime: "image/png", body: "BG" });
+    assert.deepEqual(decodeDataUri(dataUrisIn(css.body)[0] ?? ""), {
+      mime: "image/png",
+      body: "BG",
+    });
   });
 
   it("CSS の @import を中まで埋め込む", () => {
@@ -101,8 +108,7 @@ describe("embedPage: 埋め込み", () => {
     write("a.css", '@import "b.css";');
     const { html } = embed(page("", '<link rel="stylesheet" href="a.css">'));
     const outer = decodeDataUri(attr(html, "link", "href") ?? "").body;
-    const inner = /@import url\("([^"]+)"\)/.exec(outer)?.[1] ?? "";
-    assert.equal(decodeDataUri(inner).body, ".b { color: red }");
+    assert.equal(decodeDataUri(dataUrisIn(outer)[0] ?? "").body, ".b { color: red }");
   });
 
   it("<style> と style 属性の url() も埋め込む", () => {
@@ -117,6 +123,63 @@ describe("embedPage: 埋め込み", () => {
     const styleText = elements(html, "style")[0]?.childNodes[0];
     assert.ok(styleText && "value" in styleText);
     assert.match(styleText.value, /url\("data:image\/png;base64,/);
+  });
+
+  // README の「制約」に並べた埋め込み対象。表から 1 行消えると、配信先でその素材が 403 になる。
+  for (const [label, markup, tag, name] of [
+    ["img の src", '<img src="a.png">', "img", "src"],
+    ["picture の source の src", '<video><source src="a.mp4"></video>', "source", "src"],
+    ["audio の src", '<audio src="a.mp3"></audio>', "audio", "src"],
+    ["video の src", '<video src="a.mp4"></video>', "video", "src"],
+    ["video の poster", '<video poster="a.png"></video>', "video", "poster"],
+    ["track の src", '<video><track src="a.vtt"></video>', "track", "src"],
+    ["input type=image の src", '<input type="image" src="a.png" alt="x">', "input", "src"],
+    ["SVG の image の href", '<svg><image href="a.svg"/></svg>', "image", "href"],
+    ["SVG の image の xlink:href", '<svg><image xlink:href="a.svg"/></svg>', "image", "href"],
+    ["link rel=icon の href", '<link rel="icon" href="a.png">', "link", "href"],
+    [
+      "link rel=apple-touch-icon の href",
+      '<link rel="apple-touch-icon" href="a.png">',
+      "link",
+      "href",
+    ],
+    ["大文字や複数の値の rel", '<link rel="Shortcut ICON" href="a.png">', "link", "href"],
+  ] as const) {
+    it(`${label} を埋め込む`, () => {
+      for (const file of ["a.png", "a.mp4", "a.mp3", "a.vtt", "a.svg"]) write(file, "X");
+      const { html } = embed(page(markup));
+      assert.equal(decodeDataUri(attr(html, tag, name) ?? "").body, "X");
+    });
+  }
+
+  it("<template> の中の素材も埋め込む", () => {
+    write("a.png", "T");
+    const { html } = embed(page('<template><img src="a.png"></template>'));
+    assert.equal(decodeDataUri(dataUrisIn(html)[0] ?? "").body, "T");
+  });
+
+  it("拡張子の大文字・小文字は区別しない", () => {
+    write("A.PNG", "U");
+    const { html } = embed(page('<img src="A.PNG">'));
+    assert.deepEqual(decodeDataUri(attr(html, "img", "src") ?? ""), {
+      mime: "image/png",
+      body: "U",
+    });
+  });
+
+  it("2 つの CSS が同じ CSS を @import しても、循環とみなさない", () => {
+    write("base.css", ".base{}");
+    write("a.css", '@import "base.css";');
+    write("b.css", '@import "base.css";');
+    assert.doesNotThrow(() =>
+      embed(page("", '<link rel="stylesheet" href="a.css"><link rel="stylesheet" href="b.css">')),
+    );
+  });
+
+  it('フラグメントの & と " は、属性の値として正しく残る', () => {
+    write("a.svg", "<svg/>");
+    const { html } = embed(page('<svg><image href="a.svg#x&quot;y&amp;z"/></svg>'));
+    assert.ok(attr(html, "image", "href")?.endsWith('#x"y&z'));
   });
 
   it("srcset の各候補を埋め込み、記述子を残す", () => {
@@ -190,14 +253,19 @@ describe("embedPage: 埋め込み", () => {
     assert.equal(attr(html, "a", "href"), "other.html");
   });
 
-  it("埋め込まない属性の相対パス（a のリンク先、link rel=preload など）は警告する", () => {
-    const { warnings } = embed(
-      page(
-        '<a href="other.html">x</a><a href="#top">t</a><a href="https://example.com/">e</a>',
-        '<link rel="preload" href="f.woff2" as="font">',
-      ),
-    );
-    assert.equal(warnings.length, 2);
+  for (const [label, markup] of [
+    ["a のリンク先", '<a href="other.html">x</a>'],
+    ["link rel=preload", '<link rel="preload" href="f.woff2" as="font">'],
+    ["/ で始まるリンク先（エラーにはしない）", '<a href="/top">x</a>'],
+  ] as const) {
+    it(`埋め込まない属性の相対パス（${label}）は警告する`, () => {
+      assert.equal(embed(page(markup)).warnings.length, 1);
+    });
+  }
+
+  it("埋め込まない属性でも、フラグメントだけの参照と外部の URL は警告しない", () => {
+    const { warnings } = embed(page('<a href="#top">t</a><a href="https://example.com/">e</a>'));
+    assert.equal(warnings.length, 0);
   });
 
   it("CSS の文字列の中の url( は素材として扱わない", () => {
@@ -244,14 +312,25 @@ describe("embedPage: 拒否する入力", () => {
     assert.throws(() => embed(page('<img src="../secret.png">')));
   });
 
+  it("名前が roots で始まる隣のディレクトリはエラー（root と root2 を取り違えない）", () => {
+    write("x.png", "S", join(base, "root2"));
+    assert.throws(() => embed(page('<img src="../root2/x.png">')));
+  });
+
+  it("CSS ファイルの中から roots の外を参照するとエラー", () => {
+    write("secret.png", "S", base);
+    write("a.css", "p { background: url(../secret.png) }");
+    assert.throws(() => embed(page("", '<link rel="stylesheet" href="a.css">')));
+  });
+
   it("roots の外を指すシンボリックリンクはエラー", () => {
     write("secret.png", "S", base);
     symlinkSync(join(base, "secret.png"), join(root, "link.png"));
     assert.throws(() => embed(page('<img src="link.png">')));
   });
 
-  it("存在しない roots はエラー", () => {
-    assert.throws(() => embedPage(page("<p>x</p>"), [join(base, "missing")]));
+  it("roots の 1 つが存在しなければ、ほかの roots が正しくてもエラー", () => {
+    assert.throws(() => embedPage(page("<p>x</p>"), [root, join(base, "missing")]));
   });
 
   it("roots の外のページはエラー", () => {
@@ -283,8 +362,9 @@ describe("embedPage: 拒否する入力", () => {
     assert.throws(() => embed(source));
   });
 
-  it("/ で始まるパスはエラー", () => {
-    assert.throws(() => embed(page('<img src="/a.png">')));
+  it("/ で始まるパスは、roots の中の実在するファイルを指していてもエラー", () => {
+    const file = write("a.png", "A");
+    assert.throws(() => embed(page(`<img src="${file}">`)));
   });
 
   it("循環する @import はエラー", () => {
@@ -298,6 +378,19 @@ describe("embedPage: 拒否する入力", () => {
     const source = page('<img src="a.png">');
     assert.doesNotThrow(() => embed(source, { maxAssetBytes: 100, maxPageBytes: 10_000 }));
     assert.throws(() => embed(source, { maxAssetBytes: 99, maxPageBytes: 10_000 }));
+  });
+
+  it("既定の素材の上限は 10 MiB", () => {
+    write("big.png", Buffer.alloc(10 * 1024 * 1024 + 1));
+    assert.throws(() => embedPage(page('<img src="big.png">'), [root]));
+  });
+
+  it("埋め込んだ後のページは、上限ちょうどなら通る", () => {
+    write("a.png", Buffer.alloc(100));
+    const source = page('<img src="a.png">');
+    const size = embed(source).html.length;
+    assert.doesNotThrow(() => embed(source, { maxAssetBytes: 10_000, maxPageBytes: size }));
+    assert.throws(() => embed(source, { maxAssetBytes: 10_000, maxPageBytes: size - 1 }));
   });
 
   it("埋め込んだ後のページが上限を超えるとエラー", () => {

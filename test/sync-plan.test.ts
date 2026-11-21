@@ -50,6 +50,12 @@ describe("assertSafeToApply", () => {
     assert.throws(() => assertSafeToApply(plan(0, 0), 0, allow));
   });
 
+  it("初めての同期（add だけ）は通る", () => {
+    assert.doesNotThrow(() =>
+      assertSafeToApply({ add: ["a"], update: [], unchanged: [], remove: [] }, 0, deny),
+    );
+  });
+
   it("削除がなければ通る", () => {
     assert.doesNotThrow(() => assertSafeToApply(plan(3, 0), 3, deny));
   });
