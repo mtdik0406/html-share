@@ -101,7 +101,7 @@ URL を止める、鍵が漏れた、依存の脆弱性をすぐ直したい、�
 
 - 作業の約束は [AGENTS.md](AGENTS.md)、設計の判断とその理由は [docs/adr/](docs/adr/) にある
 - 期限と slug の規則（`scripts/lib/lifetime.ts`・`scripts/lib/page.ts`）と署名（`scripts/lib/signed-url.ts`・`scripts/lib/signing-key.ts`）は、署名の Lambda のバンドルにも入る。変えたら `pnpm exec cdk deploy` するまで、Lambda は古い規則のまま
-- `pnpm run check` が、コミットの前・CI・Claude Code の作業の終わりに実行される。変異テスト（`pnpm run test:mutation`）は CI で実行する
+- `pnpm run check` が、コミットの前・CI・Claude Code の作業の終わりに実行される。変異テストは、CI が全体を（`pnpm run test:mutation`）、手元では変えたファイルだけを前回の結果を使って（`pnpm run test:mutation:scope`）実行する
 - どれも作業ツリーのコードを実行する。信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない
 
 ## 謝辞
