@@ -116,6 +116,18 @@ pnpm exec cdk diff    # AWS 上の今の状態との差分を見る
 | `.githooks/`   | コミットの前に `pnpm run check` を実行する hook                    |
 | `.claude/`     | Claude Code の hook（編集後の整形と、終える前の検査）              |
 
+## 依存の更新
+
+公開から 14 日たっていない版は入れない（`pnpm-workspace.yaml` の `minimumReleaseAge`）。乗っ取られた版は数日で見つかり、取り下げられることが多いため。下限を満たす版が範囲に 1 つもないときは、インストールが失敗する。
+
+脆弱性の修正版を 14 日待てないときだけ、その版を例外にする。
+
+1. `pnpm-workspace.yaml` の `minimumReleaseAgeExclude` に、パッケージ名と版を書く（例：`"@aws-sdk/client-s3@3.2000.1"`）。名前だけで書くと、以後のすべての版が下限なしで入るので書かない
+2. `pnpm install` が、修正版の依存（間接の依存）の若い版で止まったら、その版も同じように足す
+3. 14 日たったら、足した行を消す
+
+脆弱性の勧告は、GitHub の Dependabot のアラートで知らせる。
+
 ## 片付け
 
 ```sh

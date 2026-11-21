@@ -1,4 +1,9 @@
 #!/usr/bin/env bash
 # 型・lint・テストが通らないコミットを作らない。~/.gitconfig の hook（gitleaks など）とは別に、並んで動く。
-set -euo pipefail
-pnpm run check
+# 通ったときは何も出さず、失敗したときだけ出力を見せる。
+set -uo pipefail
+if ! output=$(pnpm run check 2>&1); then
+  printf '%s\n' "$output"
+  echo "pre-commit: pnpm run check が失敗しました" >&2
+  exit 1
+fi
