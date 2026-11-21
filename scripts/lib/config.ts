@@ -1,4 +1,4 @@
-import { isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { assertSlug } from "./page.js";
 
 export interface PageEntry {
@@ -17,7 +17,13 @@ export interface SyncConfig {
  * パスは設定ファイルのあるディレクトリからの相対で解決し、先頭の ~/ はホームに置き換える。
  * 知らないキーはエラーにする。綴りの誤り（"page" など）で設定が黙って無視されるのを防ぐため。
  */
-export function parseConfig(text: string, configDir: string, homeDir: string): SyncConfig {
+export function parseConfig(
+  text: string,
+  configDir: string,
+  homeDir: string,
+  /** roots にも、その親にもしてはいけないディレクトリ（ホームやこのリポジトリ）。 */
+  protectedDirs: readonly string[] = [homeDir],
+): SyncConfig {
   let data: unknown;
   try {
     data = JSON.parse(text);
@@ -31,6 +37,18 @@ export function parseConfig(text: string, configDir: string, homeDir: string): S
     throw new Error("roots にはディレクトリを 1 つ以上並べてください");
   }
   const roots = root.roots.map((r, i) => toPath(asString(r, `roots[${i}]`)));
+  for (const r of roots) {
+    // 埋め込みは roots の中ならどのファイルでも読むので、広すぎると鍵や設定まで公開できてしまう。
+    const covered = protectedDirs.find((dir) => {
+      const rel = relative(r, resolve(dir));
+      return rel === "" || (rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel));
+    });
+    if (covered !== undefined) {
+      throw new Error(
+        `roots を ${r} にすると ${covered} を丸ごと含みます。公開するページの置き場所に絞ってください`,
+      );
+    }
+  }
 
   if (!Array.isArray(root.pages)) throw new Error("pages は配列にしてください");
   const seen = new Set<string>();

@@ -336,6 +336,22 @@ describe("embedPage: 拒否する入力", () => {
     assert.throws(() => embed(page("", '<link rel="stylesheet" href="a.css">')));
   });
 
+  for (const [label, relPath] of [
+    [". で始まるディレクトリの中の素材", ".config/app/settings.js"],
+    [". で始まるファイル", ".secret.png"],
+    ["node_modules の中の素材", "node_modules/lib/index.js"],
+  ] as const) {
+    it(`${label}はエラー（AI が書いた参照で、手元の設定や依存を公開しない）`, () => {
+      write(relPath, "S");
+      assert.throws(() => embed(page(`<script src="${relPath}"></script>`)));
+    });
+  }
+
+  it(". で始まるディレクトリの中のページはエラー", () => {
+    const source = write(".drafts/index.html", "<p>x</p>");
+    assert.throws(() => embed(source));
+  });
+
   it("roots の外を指すシンボリックリンクはエラー", () => {
     write("secret.png", "S", base);
     symlinkSync(join(base, "secret.png"), join(root, "link.png"));

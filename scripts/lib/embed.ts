@@ -438,8 +438,16 @@ function resolveInsideRoots(candidate: string, ctx: Context): { file: string; si
   } catch {
     throw new Error(`ファイルが見つかりません: ${candidate}`);
   }
-  if (!ctx.roots.some((root) => isInside(file, root))) {
+  const root = ctx.roots.find((r) => isInside(file, r));
+  if (root === undefined) {
     throw new Error(`設定の roots の外にあるファイルは使えません: ${candidate}`);
+  }
+  // AI が書いた参照で、roots の中にある手元の設定（.git や .config）や依存を公開しないため。
+  const hidden = relative(root, file)
+    .split(sep)
+    .find((segment) => segment.startsWith(".") || segment === "node_modules");
+  if (hidden !== undefined) {
+    throw new Error(`${hidden} の中のファイルは使えません: ${candidate}`);
   }
   const stat = statSync(file);
   if (!stat.isFile()) throw new Error(`ファイルではありません: ${candidate}`);

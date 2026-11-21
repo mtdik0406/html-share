@@ -6,6 +6,28 @@ const configDir = "/work/conf";
 const home = "/home/me";
 const parse = (data: unknown) => parseConfig(JSON.stringify(data), configDir, home);
 
+describe("parseConfig: 広すぎる roots", () => {
+  const protectedDirs = [home, "/work/repo"];
+  const parseRoots = (roots: string[]) =>
+    parseConfig(JSON.stringify({ roots, pages: [] }), configDir, home, protectedDirs);
+
+  for (const root of ["~", "/", "/home", "/work", "/work/repo", "/work/repo/"]) {
+    it(`${root} はエラー（ホームやリポジトリを丸ごと公開できる範囲にしない）`, () => {
+      assert.throws(() => parseRoots([root]));
+    });
+  }
+
+  for (const root of ["~/pages", "/work/repo/samples", "/work/other"]) {
+    it(`${root} は通る`, () => {
+      assert.doesNotThrow(() => parseRoots([root]));
+    });
+  }
+
+  it("守るディレクトリを渡さなくても、ホームは拒否する", () => {
+    assert.throws(() => parseConfig(JSON.stringify({ roots: ["~"], pages: [] }), configDir, home));
+  });
+});
+
 describe("parseConfig", () => {
   it("相対パスは設定ファイルのディレクトリから、~/ はホームから解決する", () => {
     const config = parse({
