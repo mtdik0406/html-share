@@ -146,6 +146,7 @@ export async function runKeysDelete(
     deps.currentGeneration,
     options.all,
   );
+  // Stryker disable next-line StringLiteral,CallExpression: 表示だけで、消す対象は戻り値で確かめる
   for (const name of names) deps.log(`delete ${name}`);
   if (!options.dryRun) await deleteSigningKeys(deps.ssm, names);
   return names;
