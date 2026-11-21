@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { GetParameterCommand, PutParameterCommand } from "@aws-sdk/client-ssm";
-import { loadSigningKey, type SsmSender, storeSigningKey } from "../scripts/lib/signing-key.js";
+import {
+  DeleteParametersCommand,
+  DescribeParametersCommand,
+  GetParameterCommand,
+  PutParameterCommand,
+} from "@aws-sdk/client-ssm";
+import { signingKeyParameterName } from "../lib/names.js";
+import {
+  deleteSigningKeys,
+  listSigningKeys,
+  loadSigningKey,
+  type SsmSender,
+  selectKeysToDelete,
+  storeSigningKey,
+} from "../scripts/lib/signing-key.js";
 import { generateTestKeyPair } from "./helpers/keys.js";
 
 const NAME = "/html-share/test-key";
@@ -97,5 +110,75 @@ describe("loadSigningKey", () => {
       const { ssm } = fakeSsm(() => response);
       await assert.rejects(loadSigningKey(ssm, NAME));
     }
+  });
+});
+
+const gen = signingKeyParameterName;
+
+describe("selectKeysToDelete", () => {
+  it("今の世代より前の鍵だけを選ぶ", () => {
+    assert.deepEqual(selectKeysToDelete([gen(1), gen(2), gen(3)], 3, false), [gen(1), gen(2)]);
+  });
+
+  it("今の世代の鍵と、先に置いた次の世代の鍵は選ばない", () => {
+    assert.deepEqual(selectKeysToDelete([gen(2), gen(3)], 2, false), []);
+  });
+
+  it("all ならすべて選ぶ", () => {
+    assert.deepEqual(selectKeysToDelete([gen(1), gen(2), gen(3)], 2, true), [
+      gen(1),
+      gen(2),
+      gen(3),
+    ]);
+  });
+
+  it("署名の鍵でない名前は、all でも選ばない", () => {
+    assert.deepEqual(selectKeysToDelete(["/html-share/other", gen(1)], 2, true), [gen(1)]);
+  });
+});
+
+describe("listSigningKeys", () => {
+  it("名前の先頭で絞って読み、続きがあればすべて読む", async () => {
+    const pages = [
+      {
+        Parameters: [{ Name: gen(1) }, { Name: "/html-share/signing-private-key-old" }],
+        NextToken: "t",
+      },
+      { Parameters: [{ Name: gen(2) }, {}] },
+    ];
+    const { ssm, sent } = fakeSsm(() => pages.shift());
+    assert.deepEqual(await listSigningKeys(ssm), [gen(1), gen(2)]);
+    assert.equal(sent.length, 2);
+    const [first, second] = sent;
+    assert.ok(first instanceof DescribeParametersCommand);
+    assert.deepEqual(first.input.ParameterFilters, [
+      { Key: "Name", Option: "BeginsWith", Values: [gen(1)] },
+    ]);
+    assert.ok(second instanceof DescribeParametersCommand);
+    assert.equal(second.input.NextToken, "t");
+  });
+});
+
+describe("deleteSigningKeys", () => {
+  it("1 回に 10 個ずつ消す", async () => {
+    const { ssm, sent } = fakeSsm(() => ({ InvalidParameters: [] }));
+    const names = Array.from({ length: 11 }, (_, i) => gen(i + 1));
+    await deleteSigningKeys(ssm, names);
+    assert.deepEqual(
+      sent.map((c) => (c as DeleteParametersCommand).input.Names),
+      [names.slice(0, 10), names.slice(10)],
+    );
+    assert.ok(sent.every((c) => c instanceof DeleteParametersCommand));
+  });
+
+  it("消す名前がなければ、何も送らない", async () => {
+    const { ssm, sent } = fakeSsm();
+    await deleteSigningKeys(ssm, []);
+    assert.equal(sent.length, 0);
+  });
+
+  it("消せなかった名前があれば失敗する", async () => {
+    const { ssm } = fakeSsm(() => ({ InvalidParameters: [gen(2)] }));
+    await assert.rejects(deleteSigningKeys(ssm, [gen(1), gen(2)]));
   });
 });

@@ -13,6 +13,7 @@
     "prepare": "git config core.hooksPath .githooks",
     "keygen": "tsx scripts/keygen.ts",
     "keys:store": "tsx scripts/keys-store.ts",
+    "keys:delete": "tsx scripts/keys-delete.ts",
     "sync": "tsx scripts/sync.ts",
     "sign": "tsx scripts/sign.ts",
     "typecheck": "tsc --noEmit",
