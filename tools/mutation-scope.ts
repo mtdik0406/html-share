@@ -15,8 +15,11 @@ if (targets.length === 0) {
   console.log("変異テストの対象になる変更はありません");
 } else {
   console.log(`変異テストの対象: ${targets.join(", ")}`);
-  const run = spawnSync("pnpm", ["exec", "stryker", "run", "--mutate", targets.join(",")], {
-    stdio: "inherit",
-  });
+  // incremental はここでだけ使う。CI の全体の実行が、残っていた結果を使い回さないため（ADR 11）。
+  const run = spawnSync(
+    "pnpm",
+    ["exec", "stryker", "run", "--incremental", "--mutate", targets.join(",")],
+    { stdio: "inherit" },
+  );
   process.exitCode = run.status ?? 1;
 }

@@ -61,7 +61,9 @@ description: html-share のコード（scripts/・lib/・bin/・tools/ とその
 
 1. 範囲を決める。引数でファイルや範囲が指定されたらそれに従い、なければ `pnpm run review:scope` の「範囲」を使う。「ユーザーの判断が要る変更」は、そのまま報告に写す
 2. `pnpm run check`。落ちたら、レビューの前に直す
-3. `pnpm run test:mutation:scope`。変えたファイルだけを、前回の結果を使って流す（全体は CI が流す）。スコアが下限を下回って落ちたら、下限を下げずにテストを足す
+3. `pnpm run test:mutation:scope`。main から変えたファイルと、変えたテストと同じ名前のソースだけを、前回の結果を使って流す（全体は CI が流す）。スコアが下限を下回って落ちたら、下限を下げずにテストを足す
+   - 名前の合うソースのないテスト（helper・複数のモジュールにまたがるテスト）を変えたときと、依存や設定を変えたときは、`pnpm run test:mutation` で全体を流す。scope と前回の結果は、それらの変更を見ないため
+   - 範囲と行数は手元の main から測る。先に main を最新にする
 4. `pnpm run review:mutants`。見逃した変異の一覧を控える
 
 ## 5. レビュー

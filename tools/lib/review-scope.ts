@@ -1,5 +1,6 @@
 /** 差分がないときに見る範囲。 */
-const WHOLE_CODEBASE = ["scripts/", "lib/", "bin/", "tools/", "test/"];
+export const CODE_DIRS = ["scripts", "lib", "bin", "tools", "test"];
+const WHOLE_CODEBASE = CODE_DIRS.map((dir) => `${dir}/`);
 
 /**
  * 変えるにはユーザーの判断が要るファイル。検査の設定と検査そのもの、作業の規則、設計の判断。
@@ -118,4 +119,27 @@ export function mutationTargets(changed: readonly string[], sources: readonly st
 export function reviewerCount(changedCodeLines: number): 1 | 2 | 4 {
   if (changedCodeLines < 300) return 1;
   return changedCodeLines < 1000 ? 2 : 4;
+}
+
+/** `git diff --numstat` の出力と、新しいファイルの中身から、足した行と消した行の数を出す。 */
+export function countChangedLines(numstat: string, newFiles: readonly string[]): number {
+  // バイナリのファイルは数の代わりに "-" になるので、当たらない。
+  // Stryker disable next-line Regex: git は tab を含む名前を引用符で囲むので、^ の有無で当たる行は同じ
+  const tracked = [...numstat.matchAll(/^(\d+)\t(\d+)\t/gm)].reduce(
+    (sum, [, added, deleted]) => sum + Number(added) + Number(deleted),
+    0,
+  );
+  // 末尾の改行のあとは行に数えない。
+  const untracked = newFiles.reduce(
+    (sum, text) => sum + text.split("\n").length - (text.endsWith("\n") || text === "" ? 1 : 0),
+    0,
+  );
+  return tracked + untracked;
+}
+
+/** Stryker の mutate の glob を、git の pathspec にする。`!` で始まるものは除外にする。 */
+export function toPathspecs(globs: readonly string[]): string[] {
+  return globs.map((glob) =>
+    glob.startsWith("!") ? `:(exclude,glob)${glob.slice(1)}` : `:(glob)${glob}`,
+  );
 }

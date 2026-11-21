@@ -1,7 +1,10 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { lstatSync, readFileSync } from "node:fs";
+import { CODE_DIRS, countChangedLines, toPathspecs } from "./lib/review-scope.js";
 
-const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" }).trim();
+// quotePath を切らないと、日本語などの名前が引用符付きの 8 進数で返り、ファイルを開けない。
+const git = (...args: string[]) =>
+  execFileSync("git", ["-c", "core.quotePath=false", ...args], { encoding: "utf8" }).trim();
 const lines = (...args: string[]) =>
   git(...args)
     .split("\n")
@@ -20,28 +23,21 @@ export function changedFiles(): {
   };
 }
 
-/** pathspec（`:(glob)` 付き）に当たる、git が知っているファイルと新しいファイル。 */
+/** Stryker の mutate の glob に当たる、git が知っているファイルと新しいファイル。 */
 export function filesMatching(globs: readonly string[]): string[] {
-  const specs = globs.map((glob) => `:(glob)${glob}`);
+  const specs = toPathspecs(globs);
   return [
     ...lines("ls-files", "--", ...specs),
     ...lines("ls-files", "--others", "--exclude-standard", "--", ...specs),
   ];
 }
 
-const CODE_DIRS = ["scripts", "lib", "bin", "tools", "test"];
-
 /** main から足した行と消した行の数（コードのディレクトリだけ）。新しいファイルは全体を数える。 */
 export function changedCodeLines(): number {
-  const numstat = lines("diff", "--numstat", git("merge-base", "main", "HEAD"), "--", ...CODE_DIRS);
-  const tracked = numstat.reduce((sum, line) => {
-    const [added, deleted] = line.split("\t");
-    // バイナリのファイルは "-" になるので数えない。
-    return sum + (Number(added) || 0) + (Number(deleted) || 0);
-  }, 0);
-  const untracked = lines("ls-files", "--others", "--exclude-standard", "--", ...CODE_DIRS).reduce(
-    (sum, file) => sum + readFileSync(file, "utf8").split("\n").length,
-    0,
-  );
-  return tracked + untracked;
+  const numstat = git("diff", "--numstat", git("merge-base", "main", "HEAD"), "--", ...CODE_DIRS);
+  // ディレクトリや FIFO を読むと落ちるか止まるので、通常のファイルだけを読む。
+  const newFiles = lines("ls-files", "--others", "--exclude-standard", "--", ...CODE_DIRS)
+    .filter((file) => lstatSync(file).isFile())
+    .map((file) => readFileSync(file, "utf8"));
+  return countChangedLines(numstat, newFiles);
 }

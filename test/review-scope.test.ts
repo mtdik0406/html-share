@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import {
   changedLines,
+  countChangedLines,
   guardedFiles,
   mutationTargets,
   reviewerCount,
   reviewScope,
   survivorsOnChangedLines,
+  toPathspecs,
   wholeFiles,
 } from "../tools/lib/review-scope.js";
 
@@ -204,5 +206,24 @@ describe("reviewerCount", () => {
 
   it("1000 行以上なら 4 体", () => {
     assert.equal(reviewerCount(1000), 4);
+  });
+});
+
+describe("countChangedLines", () => {
+  it("足した行と消した行を合わせ、バイナリのファイルは数えない", () => {
+    assert.equal(countChangedLines("10\t5\ta.ts\n-\t-\tlogo.png\n0\t12\tb.ts\n", []), 27);
+  });
+
+  it("新しいファイルは行の数を数え、末尾の改行で 1 行増やさない", () => {
+    assert.equal(countChangedLines("", ["a\nb\n", "c", "", "d\ne"]), 5);
+  });
+});
+
+describe("toPathspecs", () => {
+  it("glob はそのまま、! で始まるものは除外の pathspec にする", () => {
+    assert.deepEqual(toPathspecs(["lib/**/*.ts", "!lib/**/*.d.ts"]), [
+      ":(glob)lib/**/*.ts",
+      ":(exclude,glob)lib/**/*.d.ts",
+    ]);
   });
 });
