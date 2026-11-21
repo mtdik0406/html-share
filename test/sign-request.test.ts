@@ -52,31 +52,26 @@ describe("createSignHandler", () => {
     }
   });
 
-  it("期限が 1 分未満・上限超え・数でないときは署名しない", async () => {
-    const { handler } = handlerWith();
-    for (const lifetimeMs of [
-      MINUTE_MS - 1,
-      MAX_DAYS * DAY_MS + 1,
-      "60000",
+  it("正しくない要求には、署名せず、鍵も読まない", async () => {
+    const { handler, loads } = handlerWith();
+    for (const event of [
+      // 期限が 1 分未満・上限超え・数でない
+      { slug: "page-a", lifetimeMs: MINUTE_MS - 1 },
+      { slug: "page-a", lifetimeMs: MAX_DAYS * DAY_MS + 1 },
+      { slug: "page-a", lifetimeMs: "60000" },
+      { slug: "page-a", lifetimeMs: undefined },
+      { slug: "page-a", lifetimeMs: Number.NaN },
+      // slug が正しくない
+      ...["../x", "", "A", 1, undefined].map((slug) => ({ slug, lifetimeMs: DAY_MS })),
+      // オブジェクトでない
+      null,
       undefined,
-      Number.NaN,
+      "page-a",
+      [],
     ]) {
-      await assert.rejects(handler({ slug: "page-a", lifetimeMs }));
-    }
-  });
-
-  it("slug が正しくないときは署名しない", async () => {
-    const { handler } = handlerWith();
-    for (const slug of ["../x", "", "A", 1, undefined]) {
-      await assert.rejects(handler({ slug, lifetimeMs: DAY_MS }));
-    }
-  });
-
-  it("要求がオブジェクトでないときは署名しない", async () => {
-    const { handler } = handlerWith();
-    for (const event of [null, undefined, "page-a", []]) {
       await assert.rejects(handler(event));
     }
+    assert.equal(loads(), 0);
   });
 
   it("期限は秒に切り捨て、返す期限と URL の Expires を一致させる", async () => {
@@ -92,21 +87,6 @@ describe("createSignHandler", () => {
     await handler({ slug: "page-a", lifetimeMs: DAY_MS });
     await handler({ slug: "page-b", lifetimeMs: DAY_MS });
     assert.equal(loads(), 1);
-  });
-
-  it("要求が正しくないときは鍵を読まない", async () => {
-    const { handler, loads } = handlerWith();
-    for (const event of [
-      { slug: "../x", lifetimeMs: DAY_MS },
-      { slug: "page-a", lifetimeMs: MINUTE_MS - 1 },
-      { slug: "page-a", lifetimeMs: MAX_DAYS * DAY_MS + 1 },
-      { slug: "page-a", lifetimeMs: "60000" },
-      null,
-      [],
-    ]) {
-      await assert.rejects(handler(event));
-    }
-    assert.equal(loads(), 0);
   });
 
   it("同時の呼び出しでも、鍵は 1 回だけ読む", async () => {

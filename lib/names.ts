@@ -29,13 +29,15 @@ export function signingKeyParameterName(generation: number): string {
     : `${SIGNING_KEY_PARAMETER_BASE}-gen${generation}`;
 }
 
-/** 署名の鍵のパラメータでない名前には undefined を返す。名前は世代ごとに 1 つだけなので、別の書き方は認めない。 */
+/** 署名の鍵のパラメータでない名前には undefined を返す。作る側と同じ規則で確かめるため、作り直して比べる。 */
 export function generationOfParameterName(name: string): number | undefined {
-  if (name === SIGNING_KEY_PARAMETER_BASE) return 1;
-  const match = /^-gen([1-9][0-9]*)$/.exec(name.slice(SIGNING_KEY_PARAMETER_BASE.length));
-  if (!name.startsWith(SIGNING_KEY_PARAMETER_BASE) || match === null) return undefined;
-  const generation = Number(match[1]);
-  return generation >= 2 ? generation : undefined;
+  // Stryker disable next-line Regex: 作り直して比べるので、$ を外しても結果は同じ
+  const generation = name === SIGNING_KEY_PARAMETER_BASE ? 1 : Number(/-gen(\d+)$/.exec(name)?.[1]);
+  return Number.isInteger(generation) &&
+    generation >= 1 &&
+    signingKeyParameterName(generation) === name
+    ? generation
+    : undefined;
 }
 
 /** 署名の Lambda に渡す環境変数の名前。スタックと Lambda の入口で食い違わないよう、ここで決める。 */
