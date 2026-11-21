@@ -1,10 +1,12 @@
 import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { SSMClient } from "@aws-sdk/client-ssm";
-import { SIGNING_KEY_PARAMETER_NAME } from "../lib/names.js";
+import { SIGNING_KEY_GENERATION, signingKeyParameterName } from "../lib/names.js";
 import { runCli } from "./lib/cli.js";
 import { PRIVATE_KEY_PATH, PUBLIC_KEY_PATH } from "./lib/paths.js";
 import { storeSigningKey } from "./lib/signing-key.js";
+
+const parameterName = signingKeyParameterName(SIGNING_KEY_GENERATION);
 
 // 鍵の中身は表示しない。読んだ値は SDK にだけ渡す。
 await runCli(async () => {
@@ -17,10 +19,10 @@ await runCli(async () => {
   }
 
   await storeSigningKey(new SSMClient({}), {
-    parameterName: SIGNING_KEY_PARAMETER_NAME,
+    parameterName,
     privateKeyPem: await readFile(PRIVATE_KEY_PATH, "utf8"),
     publicKeyPem: await readFile(PUBLIC_KEY_PATH, "utf8"),
     overwrite: values.overwrite,
   });
-  console.log(`秘密鍵を SSM の ${SIGNING_KEY_PARAMETER_NAME} に置きました`);
+  console.log(`秘密鍵を SSM の ${parameterName} に置きました`);
 });

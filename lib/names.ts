@@ -9,8 +9,33 @@ export const OUTPUT_KEYS = {
   signFunctionName: "SignFunctionName",
 } as const;
 
-/** 署名用の秘密鍵を置く SSM のパラメータ。CloudFormation は SecureString を作れないので、keys:store で置く。 */
-export const SIGNING_KEY_PARAMETER_NAME = "/html-share/signing-private-key";
+/**
+ * 署名用の秘密鍵を置く SSM のパラメータ。CloudFormation は SecureString を作れないので、keys:store で置く。
+ * 世代ごとに分ける。deploy が途中で失敗しても、古い世代の鍵がそのまま残り、戻す作業が要らないため（ADR 11）。
+ */
+const SIGNING_KEY_PARAMETER_BASE = "/html-share/signing-private-key";
+
+function assertKeyGeneration(generation: number): void {
+  if (!Number.isInteger(generation) || generation < 1) {
+    throw new Error(`鍵の世代は 1 以上の整数にしてください: ${generation}`);
+  }
+}
+
+export function signingKeyParameterName(generation: number): string {
+  assertKeyGeneration(generation);
+  return generation === 1
+    ? SIGNING_KEY_PARAMETER_BASE
+    : `${SIGNING_KEY_PARAMETER_BASE}-gen${generation}`;
+}
+
+/** 署名の鍵のパラメータでない名前には undefined を返す。名前は世代ごとに 1 つだけなので、別の書き方は認めない。 */
+export function generationOfParameterName(name: string): number | undefined {
+  if (name === SIGNING_KEY_PARAMETER_BASE) return 1;
+  const match = /^-gen([1-9][0-9]*)$/.exec(name.slice(SIGNING_KEY_PARAMETER_BASE.length));
+  if (!name.startsWith(SIGNING_KEY_PARAMETER_BASE) || match === null) return undefined;
+  const generation = Number(match[1]);
+  return generation >= 2 ? generation : undefined;
+}
 
 /** 署名の Lambda に渡す環境変数の名前。スタックと Lambda の入口で食い違わないよう、ここで決める。 */
 export const SIGN_FUNCTION_ENV = {

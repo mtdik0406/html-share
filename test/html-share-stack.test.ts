@@ -6,7 +6,7 @@ import { before, describe, it } from "node:test";
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
-import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, SIGNING_KEY_PARAMETER_NAME } from "../lib/names.js";
+import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "../lib/names.js";
 import { MIME_TYPES } from "../scripts/lib/embed.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: CloudFormation テンプレートは任意の JSON
@@ -361,7 +361,7 @@ describe("HtmlShareStack", () => {
 
   it("署名の Lambda は、このスタックの公開鍵の ID と Distribution のドメインで署名する", () => {
     const variables = signFunction().Properties.Environment.Variables;
-    assert.equal(variables[SIGN_FUNCTION_ENV.parameterName], SIGNING_KEY_PARAMETER_NAME);
+    assert.equal(variables[SIGN_FUNCTION_ENV.parameterName], signingKeyParameterName(1));
     const publicKeyIds = Object.keys(resourcesOf("AWS::CloudFront::PublicKey"));
     assert.deepEqual(refsIn(variables[SIGN_FUNCTION_ENV.keyPairId]), publicKeyIds);
     const [distributionId] = Object.keys(resourcesOf("AWS::CloudFront::Distribution"));
@@ -398,7 +398,7 @@ describe("HtmlShareStack", () => {
       assert.deepEqual(asArray(statement.Action), ["ssm:GetParameter"]);
       const resource = JSON.stringify(statement.Resource);
       assert.ok(resource.includes(":ssm:"), resource);
-      assert.ok(resource.includes(`:parameter${SIGNING_KEY_PARAMETER_NAME}"`), resource);
+      assert.ok(resource.includes(`:parameter${signingKeyParameterName(1)}"`), resource);
       assert.ok(!resource.includes("*"), `Resource にワイルドカードがある: ${resource}`);
     }
     // 管理ポリシーは、ログを書くための AWS 管理ポリシー 1 つだけ。
@@ -448,6 +448,24 @@ describe("HtmlShareStack", () => {
           Object.keys(template.findResources(type)),
         );
       }
+    });
+
+    it("署名の Lambda は、その世代の鍵のパラメータだけを読む", () => {
+      const second = templateFor(2);
+      const fn = Object.values(second.findResources("AWS::Lambda::Function")).find(
+        (f) => f.Properties.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName],
+      );
+      assert.equal(
+        fn?.Properties.Environment.Variables[SIGN_FUNCTION_ENV.parameterName],
+        signingKeyParameterName(2),
+      );
+      const resources = JSON.stringify(
+        Object.values(second.findResources("AWS::IAM::Policy")).flatMap(
+          (p) => p.Properties.PolicyDocument.Statement,
+        ),
+      );
+      assert.ok(resources.includes(`:parameter${signingKeyParameterName(2)}"`), resources);
+      assert.ok(!resources.includes(`:parameter${signingKeyParameterName(1)}"`), resources);
     });
 
     it("世代が 1 以上の整数でなければ、スタックを作らない", () => {

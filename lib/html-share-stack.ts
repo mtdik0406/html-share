@@ -8,7 +8,7 @@ import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
-import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, SIGNING_KEY_PARAMETER_NAME } from "./names.js";
+import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
 
 // aws-cdk-lib に定数がまだないので、名前で指定する（ADR 9）。
 const NODEJS_26 = new lambda.Runtime("nodejs26.x", lambda.RuntimeFamily.NODEJS);
@@ -37,9 +37,8 @@ export class HtmlShareStack extends Stack {
     // CloudFront の公開鍵は、作ったあと中身を変えられない。鍵を作り直すときは世代を上げ、別の公開鍵として作らせる。
     // 1 世代目は、デプロイ済みの公開鍵を作り直さないよう、世代を足す前と同じ ID にする。
     const generation = props.signingKeyGeneration;
-    if (!Number.isInteger(generation) || generation < 1) {
-      throw new Error(`鍵の世代は 1 以上の整数にしてください: ${generation}`);
-    }
+    // 世代が正しくなければ、ここで失敗する。
+    const parameterName = signingKeyParameterName(generation);
     const publicKeyId = generation === 1 ? "SigningPublicKey" : `SigningPublicKeyGen${generation}`;
     const publicKey = new cloudfront.PublicKey(this, publicKeyId, {
       encodedKey: props.publicKeyPem,
@@ -156,7 +155,7 @@ export class HtmlShareStack extends Stack {
       environment: {
         [SIGN_FUNCTION_ENV.distributionDomainName]: distribution.distributionDomainName,
         [SIGN_FUNCTION_ENV.keyPairId]: publicKey.publicKeyId,
-        [SIGN_FUNCTION_ENV.parameterName]: SIGNING_KEY_PARAMETER_NAME,
+        [SIGN_FUNCTION_ENV.parameterName]: parameterName,
       },
       bundling: {
         format: nodejs.OutputFormat.ESM,
@@ -182,8 +181,8 @@ export class HtmlShareStack extends Stack {
             service: "ssm",
             resource: "parameter",
             // ARN では、名前の先頭の / を resource の区切りと兼ねる。
-            // Stryker disable next-line Regex: 名前の / は先頭の 1 つだけなので、^ を外しても同じ
-            resourceName: SIGNING_KEY_PARAMETER_NAME.replace(/^\//, ""),
+            // Stryker disable next-line Regex: g のない replace は最初の 1 つだけを置き換え、名前は / で始まるので、^ の有無で結果は同じ
+            resourceName: parameterName.replace(/^\//, ""),
           }),
         ],
       }),
