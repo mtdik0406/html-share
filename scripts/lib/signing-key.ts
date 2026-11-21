@@ -97,7 +97,7 @@ export async function listSigningKeys(ssm: SsmSender): Promise<string[]> {
     )) as DescribeParametersCommandOutput;
     // Stryker disable next-line ArrayDeclaration: 名前のない要素は飛ばすので、既定の配列に何が入っても同じ
     for (const { Name } of res.Parameters ?? []) {
-      if (Name !== undefined && generationOfParameterName(Name) !== undefined) names.push(Name);
+      if (generationOfParameterName(Name) !== undefined) names.push(Name as string);
     }
     token = res.NextToken;
   } while (token !== undefined);
@@ -165,6 +165,5 @@ export async function readDeployedKeyGeneration(
     new GetFunctionConfigurationCommand({ FunctionName: functionName }),
   )) as GetFunctionConfigurationCommandOutput;
   // Stryker disable next-line OptionalChaining: 環境変数がなくても TypeError で失敗し、消さないので、振る舞いは同じ
-  const name = res.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName];
-  return name === undefined ? undefined : generationOfParameterName(name);
+  return generationOfParameterName(res.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName]);
 }

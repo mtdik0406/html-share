@@ -30,9 +30,10 @@ export function signingKeyParameterName(generation: number): string {
 }
 
 /** 署名の鍵のパラメータでない名前には undefined を返す。作る側と同じ規則で確かめるため、作り直して比べる。 */
-export function generationOfParameterName(name: string): number | undefined {
+export function generationOfParameterName(name: string | undefined): number | undefined {
   // Stryker disable next-line Regex: 作り直して比べるので、$ を外しても結果は同じ
-  const generation = name === SIGNING_KEY_PARAMETER_BASE ? 1 : Number(/-gen(\d+)$/.exec(name)?.[1]);
+  const digits = /-gen(\d+)$/.exec(String(name))?.[1];
+  const generation = name === SIGNING_KEY_PARAMETER_BASE ? 1 : Number(digits);
   return Number.isInteger(generation) &&
     generation >= 1 &&
     signingKeyParameterName(generation) === name
