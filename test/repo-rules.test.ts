@@ -4,6 +4,7 @@ import {
   adrChangedOutsideStatus,
   findForbiddenText,
   findMessageAssertions,
+  findMissingReferences,
 } from "../tools/lib/repo-rules.js";
 
 describe("findForbiddenText", () => {
@@ -90,5 +91,31 @@ describe("adrChangedOutsideStatus", () => {
 
   it("状態の行の外を変えたら見つける", () => {
     assert.equal(adrChangedOutsideStatus(adr("採用"), adr("採用", "## 決定\n\n- B\n")), true);
+  });
+});
+
+describe("findMissingReferences", () => {
+  const known = { scripts: new Set(["check", "sync"]), skills: new Set(["develop"]) };
+
+  it("ある script と skill だけを参照していれば通す", () => {
+    const text = "`pnpm run check` と `pnpm run sync --dry-run`、`develop` の skill";
+    assert.deepEqual(findMissingReferences(text, known), []);
+  });
+
+  for (const [label, text] of [
+    ["ない script", "`pnpm run gone` を実行する"],
+    ["ない skill", "`quality-review` の skill を使う"],
+  ] as const) {
+    it(`${label}を参照していれば見つける`, () => {
+      assert.equal(findMissingReferences(text, known).length, 1);
+    });
+  }
+
+  it("見つけた行の番号を返す", () => {
+    const text = "a\n`pnpm run gone`\n`gone` の skill";
+    assert.deepEqual(
+      findMissingReferences(text, known).map((f) => f.line),
+      [2, 3],
+    );
   });
 });

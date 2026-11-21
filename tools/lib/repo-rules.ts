@@ -79,3 +79,26 @@ export function adrChangedOutsideStatus(original: string, current: string): bool
       .join("\n");
   return withoutStatus(original) !== withoutStatus(current);
 }
+
+/** 文書と skill が、ない script や skill を指していないか。名前を変えたときに、古い参照が残らないように。 */
+export function findMissingReferences(
+  text: string,
+  known: { scripts: ReadonlySet<string>; skills: ReadonlySet<string> },
+): Finding[] {
+  const findings: Finding[] = [];
+  text.split("\n").forEach((lineText, i) => {
+    for (const [, name] of lineText.matchAll(/pnpm run ([\w:-]+)/g)) {
+      if (!known.scripts.has(name as string)) {
+        // Stryker disable next-line StringLiteral: 表示の文言
+        findings.push({ line: i + 1, reason: `ない script: ${name}` });
+      }
+    }
+    for (const [, name] of lineText.matchAll(/`([\w-]+)` の skill/g)) {
+      if (!known.skills.has(name as string)) {
+        // Stryker disable next-line StringLiteral: 表示の文言
+        findings.push({ line: i + 1, reason: `ない skill: ${name}` });
+      }
+    }
+  });
+  return findings;
+}

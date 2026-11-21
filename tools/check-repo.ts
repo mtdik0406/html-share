@@ -1,10 +1,11 @@
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import {
   adrChangedOutsideStatus,
   type Finding,
   findForbiddenText,
   findMessageAssertions,
+  findMissingReferences,
 } from "./lib/repo-rules.js";
 
 // 規則そのものと、そのテストの例は、見つける対象の文字列を含む。
@@ -30,6 +31,11 @@ function originalAdr(path: string): string | undefined {
   return added ? git("show", `${added}:${path}`) : undefined;
 }
 
+const known = {
+  scripts: new Set(Object.keys(JSON.parse(readFileSync("package.json", "utf8")).scripts)),
+  skills: new Set(readdirSync(".claude/skills")),
+};
+
 const problems: string[] = [];
 const report = (path: string, findings: Finding[]) => {
   for (const { line, reason } of findings) problems.push(`${path}:${line} ${reason}`);
@@ -45,6 +51,10 @@ for (const path of files()) {
   if (text === undefined) continue;
   if (!EXEMPT_FROM_TEXT_RULES.has(path)) report(path, findForbiddenText(text));
   if (path.startsWith("test/") && path.endsWith(".ts")) report(path, findMessageAssertions(text));
+  // ADR は決めた時点の記録なので、後で名前が変わった参照も残す。
+  if (path.endsWith(".md") && !path.startsWith("docs/adr/")) {
+    report(path, findMissingReferences(text, known));
+  }
   if (path.startsWith("docs/adr/")) {
     const original = originalAdr(path);
     if (original !== undefined && adrChangedOutsideStatus(original, text)) {
