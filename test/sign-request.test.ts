@@ -96,8 +96,26 @@ describe("createSignHandler", () => {
 
   it("要求が正しくないときは鍵を読まない", async () => {
     const { handler, loads } = handlerWith();
-    await assert.rejects(handler({ slug: "../x", lifetimeMs: DAY_MS }));
+    for (const event of [
+      { slug: "../x", lifetimeMs: DAY_MS },
+      { slug: "page-a", lifetimeMs: MINUTE_MS - 1 },
+      { slug: "page-a", lifetimeMs: MAX_DAYS * DAY_MS + 1 },
+      { slug: "page-a", lifetimeMs: "60000" },
+      null,
+      [],
+    ]) {
+      await assert.rejects(handler(event));
+    }
     assert.equal(loads(), 0);
+  });
+
+  it("同時の呼び出しでも、鍵は 1 回だけ読む", async () => {
+    const { handler, loads } = handlerWith();
+    await Promise.all([
+      handler({ slug: "page-a", lifetimeMs: DAY_MS }),
+      handler({ slug: "page-b", lifetimeMs: DAY_MS }),
+    ]);
+    assert.equal(loads(), 1);
   });
 
   it("鍵の読み込みに失敗したら、次の呼び出しで読み直す", async () => {
