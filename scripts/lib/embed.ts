@@ -1,4 +1,12 @@
-import { readFileSync, realpathSync, statSync } from "node:fs";
+import {
+  closeSync,
+  constants,
+  fstatSync,
+  openSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from "node:fs";
 import { dirname, extname, isAbsolute, relative, resolve, sep } from "node:path";
 import { type DefaultTreeAdapterTypes, parse } from "parse5";
 
@@ -128,8 +136,8 @@ function embedPageUnlabeled(
     cache: new Map(),
   };
 
-  const { file: source } = resolveInsideRoots(sourcePath, ctx);
-  const html = readFileSync(source, "utf8");
+  const source = resolveInsideRoots(sourcePath, ctx);
+  const html = readVerified(source, sourcePath, limits.maxPageBytes).toString("utf8");
   const baseDir = dirname(source);
 
   const edits: Edit[] = [];
@@ -398,7 +406,7 @@ function rewriteCss(
 }
 
 function dataUriFor(candidate: string, ctx: Context, stack: readonly string[]): string {
-  const { file, size } = resolveInsideRoots(candidate, ctx);
+  const file = resolveInsideRoots(candidate, ctx);
   ctx.assets.add(file);
   // 循環の判定はキャッシュより先に行う。キャッシュに入るのは、最後まで埋め込めた CSS だけ。
   if (stack.includes(file)) throw new Error(`CSS の @import が循環しています: ${candidate}`);
@@ -409,19 +417,15 @@ function dataUriFor(candidate: string, ctx: Context, stack: readonly string[]): 
   if (!mime) {
     throw new Error(`埋め込めない種類のファイルです（拡張子で判定）: ${candidate}`);
   }
-  if (size > ctx.limits.maxAssetBytes) {
-    throw new Error(
-      `素材が上限 ${ctx.limits.maxAssetBytes} バイトを超えます（${size} バイト）: ${candidate}`,
-    );
-  }
+  const content = readVerified(file, candidate, ctx.limits.maxAssetBytes);
 
   let uri: string;
   if (mime === "text/css") {
-    const css = rewriteCss(readFileSync(file, "utf8"), dirname(file), ctx, [...stack, file]);
+    const css = rewriteCss(content.toString("utf8"), dirname(file), ctx, [...stack, file]);
     uri = `data:text/css;charset=utf-8;base64,${Buffer.from(css, "utf8").toString("base64")}`;
   } else {
     // 中の import は解決しないので、JS は 1 ファイルにまとめてある前提（README の「制約」）。
-    uri = `data:${mime};base64,${readFileSync(file).toString("base64")}`;
+    uri = `data:${mime};base64,${content.toString("base64")}`;
   }
   ctx.cache.set(file, uri);
   return uri;
@@ -431,7 +435,7 @@ function dataUriFor(candidate: string, ctx: Context, stack: readonly string[]): 
  * シンボリックリンクをたどった先で判定する。リンクでルートの外（~/.ssh など）を指されても、
  * 中身をページに入れて公開しないため。
  */
-function resolveInsideRoots(candidate: string, ctx: Context): { file: string; size: number } {
+function resolveInsideRoots(candidate: string, ctx: Context): string {
   let file: string;
   try {
     file = realpathSync(candidate);
@@ -449,9 +453,37 @@ function resolveInsideRoots(candidate: string, ctx: Context): { file: string; si
   if (hidden !== undefined) {
     throw new Error(`${hidden} の中のファイルは使えません: ${candidate}`);
   }
-  const stat = statSync(file);
-  if (!stat.isFile()) throw new Error(`ファイルではありません: ${candidate}`);
-  return { file, size: stat.size };
+  return file;
+}
+
+/**
+ * 確かめたファイルと読むファイルを同じにする。パスで確かめてからパスで読み直すと、その間に
+ * 途中のディレクトリをシンボリックリンクに差し替えられ、roots の外を読まされうる。
+ * 開いたものを確かめ、同じものから読む。roots に書き込める相手への完全な防御ではない（README の「制約」）。
+ */
+function readVerified(file: string, candidate: string, maxBytes: number): Buffer {
+  let fd: number;
+  try {
+    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    throw new Error(`ファイルを開けません: ${candidate}`);
+  }
+  try {
+    const opened = fstatSync(fd);
+    if (!opened.isFile()) throw new Error(`ファイルではありません: ${candidate}`);
+    // ハードリンクは実体のパスが roots の中に見えるので、roots の外のファイルと見分けられない。
+    if (opened.nlink > 1) throw new Error(`ハードリンクのファイルは使えません: ${candidate}`);
+    if (opened.size > maxBytes) {
+      throw new Error(`上限 ${maxBytes} バイトを超えます（${opened.size} バイト）: ${candidate}`);
+    }
+    const current = statSync(file);
+    if (realpathSync(file) !== file || current.ino !== opened.ino || current.dev !== opened.dev) {
+      throw new Error(`確かめている間にファイルが差し替えられました: ${candidate}`);
+    }
+    return readFileSync(fd);
+  } finally {
+    closeSync(fd);
+  }
 }
 
 function isInside(file: string, root: string): boolean {

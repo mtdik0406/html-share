@@ -1,5 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import {
+  linkSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -355,6 +363,12 @@ describe("embedPage: 拒否する入力", () => {
   it("roots の外を指すシンボリックリンクはエラー", () => {
     write("secret.png", "S", base);
     symlinkSync(join(base, "secret.png"), join(root, "link.png"));
+    assert.throws(() => embed(page('<img src="link.png">')));
+  });
+
+  it("roots の外のファイルへのハードリンクはエラー（実体のパスでは見分けられない）", () => {
+    write("secret.png", "S", base);
+    linkSync(join(base, "secret.png"), join(root, "link.png"));
     assert.throws(() => embed(page('<img src="link.png">')));
   });
 
