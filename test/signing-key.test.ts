@@ -1,16 +1,19 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { GetFunctionConfigurationCommand } from "@aws-sdk/client-lambda";
 import {
   DeleteParametersCommand,
   DescribeParametersCommand,
   GetParameterCommand,
   PutParameterCommand,
 } from "@aws-sdk/client-ssm";
-import { signingKeyParameterName } from "../lib/names.js";
+import { SIGN_FUNCTION_ENV, signingKeyParameterName } from "../lib/names.js";
 import {
   deleteSigningKeys,
   listSigningKeys,
   loadSigningKey,
+  readDeployedKeyGeneration,
+  runKeysDelete,
   type SsmSender,
   selectKeysToDelete,
   storeSigningKey,
@@ -182,5 +185,105 @@ describe("deleteSigningKeys", () => {
   it("消せなかった名前があれば失敗する", async () => {
     const { ssm } = fakeSsm(() => ({ InvalidParameters: [gen(2)] }));
     await assert.rejects(deleteSigningKeys(ssm, [gen(1), gen(2)]));
+  });
+});
+
+describe("runKeysDelete", () => {
+  const listed = { Parameters: [{ Name: gen(1) }, { Name: gen(2) }, { Name: gen(3) }] };
+  function setup(currentGeneration: number, deployed: number | undefined) {
+    const { ssm, sent } = fakeSsm((command) =>
+      command instanceof DescribeParametersCommand ? listed : {},
+    );
+    const deletes = () => sent.filter((c) => c instanceof DeleteParametersCommand);
+    const deps = {
+      ssm,
+      currentGeneration,
+      deployedGeneration: async () => deployed,
+      log: () => {},
+    };
+    return { deps, deletes };
+  }
+
+  it("デプロイ済みの世代が今の世代と同じなら、前の世代の鍵を消す", async () => {
+    const { deps, deletes } = setup(2, 2);
+    assert.deepEqual(await runKeysDelete(deps, { all: false, dryRun: false }), [gen(1)]);
+    assert.deepEqual(
+      deletes().map((c) => (c as DeleteParametersCommand).input.Names),
+      [[gen(1)]],
+    );
+  });
+
+  it("デプロイ済みの世代が今の世代と違えば、何も消さずに失敗する", async () => {
+    for (const deployed of [1, 3, undefined]) {
+      const { deps, deletes } = setup(2, deployed);
+      await assert.rejects(runKeysDelete(deps, { all: false, dryRun: false }));
+      assert.equal(deletes().length, 0);
+    }
+  });
+
+  it("all なら、デプロイ済みの世代を見ずにすべて消す（スタックを片付けたあとに使う）", async () => {
+    const { deps, deletes } = setup(2, undefined);
+    assert.deepEqual(await runKeysDelete(deps, { all: true, dryRun: false }), [
+      gen(1),
+      gen(2),
+      gen(3),
+    ]);
+    assert.equal(deletes().length, 1);
+  });
+
+  it("dry-run なら、選ぶだけで消さない", async () => {
+    const { deps, deletes } = setup(2, 2);
+    assert.deepEqual(await runKeysDelete(deps, { all: true, dryRun: true }), [
+      gen(1),
+      gen(2),
+      gen(3),
+    ]);
+    assert.equal(deletes().length, 0);
+  });
+
+  it("今の世代が 1 以上の整数でなければ、何も消さずに失敗する", async () => {
+    for (const current of [0, 1.5]) {
+      const { deps, deletes } = setup(current, current);
+      await assert.rejects(runKeysDelete(deps, { all: false, dryRun: false }));
+      assert.equal(deletes().length, 0);
+    }
+  });
+});
+
+describe("readDeployedKeyGeneration", () => {
+  const lambdaReturning = (response: object) => {
+    const sent: object[] = [];
+    return {
+      sent,
+      lambda: {
+        async send(command: object) {
+          sent.push(command);
+          return response;
+        },
+      },
+    };
+  };
+
+  it("署名の Lambda が読むパラメータの名前から世代を読む", async () => {
+    const { lambda, sent } = lambdaReturning({
+      Environment: { Variables: { [SIGN_FUNCTION_ENV.parameterName]: gen(3) } },
+    });
+    assert.equal(await readDeployedKeyGeneration(lambda, "fn"), 3);
+    const [command] = sent;
+    assert.ok(command instanceof GetFunctionConfigurationCommand);
+    assert.equal(command.input.FunctionName, "fn");
+  });
+
+  it("読めなければ undefined", async () => {
+    for (const response of [
+      {},
+      { Environment: {} },
+      { Environment: { Variables: { [SIGN_FUNCTION_ENV.parameterName]: "/other" } } },
+    ]) {
+      assert.equal(
+        await readDeployedKeyGeneration(lambdaReturning(response).lambda, "fn"),
+        undefined,
+      );
+    }
   });
 });

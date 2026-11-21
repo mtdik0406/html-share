@@ -1,5 +1,9 @@
 import { createPrivateKey, createPublicKey } from "node:crypto";
 import {
+  GetFunctionConfigurationCommand,
+  type GetFunctionConfigurationCommandOutput,
+} from "@aws-sdk/client-lambda";
+import {
   DeleteParametersCommand,
   type DeleteParametersCommandOutput,
   DescribeParametersCommand,
@@ -8,7 +12,11 @@ import {
   type GetParameterCommandOutput,
   PutParameterCommand,
 } from "@aws-sdk/client-ssm";
-import { generationOfParameterName, signingKeyParameterName } from "../../lib/names.js";
+import {
+  generationOfParameterName,
+  SIGN_FUNCTION_ENV,
+  signingKeyParameterName,
+} from "../../lib/names.js";
 
 /** SSMClient の send だけを使う。テストで偽物に差し替えるため。 */
 export interface SsmSender {
@@ -108,4 +116,54 @@ export async function deleteSigningKeys(ssm: SsmSender, names: readonly string[]
     failed.push(...(res.InvalidParameters ?? []));
   }
   if (failed.length > 0) throw new Error(`消せなかったパラメータ: ${failed.join(", ")}`);
+}
+
+export interface KeysDeleteDeps {
+  ssm: SsmSender;
+  currentGeneration: number;
+  /** デプロイ済みのスタックが使う世代。読めなければ undefined。 */
+  deployedGeneration: () => Promise<number | undefined>;
+  log: (line: string) => void;
+}
+
+export async function runKeysDelete(
+  deps: KeysDeleteDeps,
+  options: { all: boolean; dryRun: boolean },
+): Promise<string[]> {
+  // 世代が正しくなければ、ここで失敗する。
+  signingKeyParameterName(deps.currentGeneration);
+  // 手元の世代だけで決めると、deploy が失敗して戻ったあとに、スタックが使っている鍵を消してしまう。
+  if (!options.all) {
+    const deployed = await deps.deployedGeneration();
+    if (deployed !== deps.currentGeneration) {
+      throw new Error(
+        `デプロイ済みの鍵の世代（${deployed ?? "不明"}）が、手元の世代（${deps.currentGeneration}）と違います。消しません`,
+      );
+    }
+  }
+  const names = selectKeysToDelete(
+    await listSigningKeys(deps.ssm),
+    deps.currentGeneration,
+    options.all,
+  );
+  for (const name of names) deps.log(`delete ${name}`);
+  if (!options.dryRun) await deleteSigningKeys(deps.ssm, names);
+  return names;
+}
+
+/** LambdaClient の send だけを使う。テストで偽物に差し替えるため。 */
+export interface LambdaConfigSender {
+  send(command: object): Promise<unknown>;
+}
+
+export async function readDeployedKeyGeneration(
+  lambda: LambdaConfigSender,
+  functionName: string,
+): Promise<number | undefined> {
+  const res = (await lambda.send(
+    new GetFunctionConfigurationCommand({ FunctionName: functionName }),
+  )) as GetFunctionConfigurationCommandOutput;
+  // Stryker disable next-line OptionalChaining: 環境変数がなくても TypeError で失敗し、消さないので、振る舞いは同じ
+  const name = res.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName];
+  return name === undefined ? undefined : generationOfParameterName(name);
 }
