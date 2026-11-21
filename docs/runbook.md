@@ -16,11 +16,13 @@
 
 1. `.keys/` の鍵を、リポジトリの外へ移すか消す（`keygen` は既存の鍵を上書きしない）
 2. `pnpm run keygen`
-3. `pnpm exec cdk diff` で、変わるのが公開鍵とキーグループだけであることを確かめる
+3. `pnpm exec cdk diff` で、変わるのが公開鍵とキーグループ（と、それを参照する Lambda の環境変数）だけであることを確かめる
 4. `pnpm exec cdk deploy`
-5. 配り直すページの URL を `pnpm run sign` で作り直す
+5. `pnpm run keys:store --overwrite`
+6. 配り直すページの URL を `pnpm run sign` で作り直す
+7. `.keys/private.pem` を消す
 
-漏れた秘密鍵は、手順 4 が終わるまで有効なまま。先に手順 4 まで済ませる。
+漏れた秘密鍵は、手順 4 が終わるまで有効なまま。先に手順 4 まで済ませる。手順 4 と 5 の間は、`sign` が古い鍵で署名するので、作った URL は通らない。
 
 ## AWS の認証情報が漏れた
 

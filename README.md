@@ -5,6 +5,7 @@ AI が作った HTML を自分の AWS に置き、期限付きの署名付き UR
 ```
 閲覧者 ──(署名付き URL)──▶ CloudFront ──(OAC)──▶ S3（非公開）
                            └ 公開鍵で署名を検証
+pnpm run sign ──(IAM)──▶ Lambda ──▶ SSM（秘密鍵）
 ```
 
 ## 必要なもの
@@ -22,9 +23,13 @@ pnpm run keygen                     # .keys/ に鍵ペアを作る（既存の�
 export AWS_PROFILE=<プロファイル名>
 pnpm exec cdk bootstrap             # アカウントとリージョンごとに 1 回だけ
 pnpm exec cdk deploy
+pnpm run keys:store                 # 秘密鍵を SSM の SecureString に置く
+pnpm run sign <slug> --minutes 1    # Lambda で署名できることを確かめる
 ```
 
-`.keys/private.pem` は秘密鍵で、git の対象外。AWS にも送らない。
+署名は、SSM の秘密鍵を読む Lambda が行う（[ADR 9](docs/adr/0009-sign-in-lambda-with-ssm-key.md)）。`keys:store` は、秘密鍵が `.keys/public.pem` と対であることを確かめてから置き、すでにある値は上書きしない。
+
+`sign` で URL を作れたら、`.keys/private.pem` を消す。手元から秘密鍵が漏れる経路をなくすため。`.keys/public.pem` は `cdk deploy` が読むので残す。
 
 ## ページを公開する
 
@@ -68,7 +73,7 @@ pnpm run sign report --days 3
 pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 ```
 
-期限内の URL を持つ人は、誰でも見られる。`sign` は URL を標準出力に出すので、AI エージェントのセッションで実行すると、その記録に残る。期限は必要な長さに絞る。
+期限と slug は Lambda が確かめる。期限内の URL を持つ人は、誰でも見られる。`sign` は URL を標準出力に出すので、AI エージェントのセッションで実行すると、その記録に残る。期限は必要な長さに絞る。
 
 ## ページの書き方
 
