@@ -4,3 +4,6 @@ allowBuilds:
 
 # 公開から 14 日（分で指定）たっていない版は入れない。乗っ取られた版は数日で見つかり、取り下げられることが多いため。
 minimumReleaseAge: 20160
+
+# package.json の engines に合わない Node では入れない。
+engineStrict: true

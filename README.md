@@ -9,7 +9,7 @@ AI が作った HTML を自分の AWS に置き、期限付きの署名付き UR
 
 ## 必要なもの
 
-- Node.js 22 以降と pnpm（バージョンは `package.json` の `packageManager`）
+- Node.js 26 以降（`.nvmrc`）と pnpm（バージョンは `package.json` の `packageManager`）
 - AWS CLI と、デプロイ先のアカウントにログインできるプロファイル
 - CloudFront の既定のドメイン（`xxxx.cloudfront.net`）で動く。独自ドメインと ACM 証明書は使わない
 

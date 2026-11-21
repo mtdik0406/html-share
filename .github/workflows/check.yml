@@ -10,10 +10,6 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # engines の下限と、手元で使っている版。
-        node: [22, 24, 26]
     steps:
       # action はタグではなくコミットで固定する。タグは付け替えられるため。
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -21,7 +17,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: ${{ matrix.node }}
+          node-version-file: .nvmrc
           # 汚染されたキャッシュを持ち込まないよう、毎回 lockfile から入れ直す。
           package-manager-cache: false
       # pnpm の版は package.json の packageManager に従う。
