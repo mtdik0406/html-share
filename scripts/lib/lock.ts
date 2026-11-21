@@ -17,13 +17,37 @@ export function acquireLock(lockDir: string): () => void {
       );
     }
     if (isAlive(owner)) {
-      throw new Error(`別の同期が実行中です（PID ${owner}）。終わるのを待ってください`);
+      // PID は再利用されるので、落ちたロックの PID が無関係のプロセスに当たることもある。消し方も伝える。
+      throw new Error(
+        `別の同期が実行中です（PID ${owner}）。終わるのを待つか、実行中でなければ ${lockDir} を消してください`,
+      );
     }
-    // 持ち主が落ちて残ったロック。消して取り直す。取り直せなければ、ほかのプロセスが先に取った。
-    rmSync(lockDir, { recursive: true, force: true });
-    if (!tryCreate(lockDir)) throw new Error("別の同期が実行中です。終わるのを待ってください");
+    takeOverStaleLock(lockDir, owner);
   }
   return () => rmSync(lockDir, { recursive: true, force: true });
+}
+
+/**
+ * 持ち主が落ちて残ったロックを取り直す。取り直し自体も別のロックで 1 プロセスに絞る。
+ * 絞らないと、2 つのプロセスが同時に古いロックを見つけたとき、遅いほうが速いほうの新しいロックを消して、
+ * 両方がロックを持ってしまう。
+ */
+function takeOverStaleLock(lockDir: string, staleOwner: number): void {
+  const takeoverDir = `${lockDir}.takeover`;
+  if (!tryCreate(takeoverDir)) {
+    throw new Error(
+      `別の同期がロックを取り直しています。実行中の同期がなければ ${takeoverDir} を消してください`,
+    );
+  }
+  try {
+    // 取り直しの権利を得るまでの間に、ほかのプロセスが先に取り直しているかもしれない。
+    if (readOwner(lockDir) !== staleOwner)
+      throw new Error("別の同期が実行中です。終わるのを待ってください");
+    rmSync(lockDir, { recursive: true, force: true });
+    if (!tryCreate(lockDir)) throw new Error("別の同期が実行中です。終わるのを待ってください");
+  } finally {
+    rmSync(takeoverDir, { recursive: true, force: true });
+  }
 }
 
 function tryCreate(lockDir: string): boolean {

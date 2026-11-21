@@ -67,7 +67,8 @@ await runCli(async () => {
     const remote = await listRemote(s3, bucketName);
     const plan = planSync(local, remote);
 
-    for (const key of plan.put) console.log(`put       ${key}`);
+    for (const key of plan.add) console.log(`add       ${key}`);
+    for (const key of plan.update) console.log(`update    ${key}`);
     for (const key of plan.remove) console.log(`delete    ${key}`);
     console.log(`unchanged ${plan.unchanged.length} ページ`);
 
@@ -78,7 +79,7 @@ await runCli(async () => {
     }
 
     // 置いてから消す。途中で失敗しても、公開するはずのページが欠けた状態にしないため。
-    for (const key of plan.put) {
+    for (const key of [...plan.add, ...plan.update]) {
       await s3.send(
         new PutObjectCommand({
           Bucket: bucketName,
@@ -92,7 +93,9 @@ await runCli(async () => {
     }
     await deleteKeys(s3, bucketName, plan.remove);
 
-    console.log(`完了: put ${plan.put.length}, delete ${plan.remove.length}`);
+    console.log(
+      `完了: add ${plan.add.length}, update ${plan.update.length}, delete ${plan.remove.length}`,
+    );
   } finally {
     release();
   }

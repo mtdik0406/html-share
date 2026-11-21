@@ -9,7 +9,9 @@ export interface RemoteObject {
 }
 
 export interface SyncPlan {
-  put: string[];
+  add: string[];
+  /** 配布済みの URL で見える中身が変わるページ。 */
+  update: string[];
   unchanged: string[];
   remove: string[];
 }
@@ -26,14 +28,15 @@ export function planSync(local: readonly LocalObject[], remote: readonly RemoteO
   const remoteEtags = new Map(remote.map((o) => [o.key, normalizeEtag(o.etag)]));
   const localKeys = new Set(local.map((o) => o.key));
 
-  const put: string[] = [];
-  const unchanged: string[] = [];
+  const plan: SyncPlan = { add: [], update: [], unchanged: [], remove: [] };
   for (const { key, md5 } of local) {
-    if (remoteEtags.get(key) === md5.toLowerCase()) unchanged.push(key);
-    else put.push(key);
+    const etag = remoteEtags.get(key);
+    if (etag === undefined) plan.add.push(key);
+    else if (etag === md5.toLowerCase()) plan.unchanged.push(key);
+    else plan.update.push(key);
   }
-  const remove = remote.map((o) => o.key).filter((key) => !localKeys.has(key));
-  return { put, unchanged, remove };
+  plan.remove = remote.map((o) => o.key).filter((key) => !localKeys.has(key));
+  return plan;
 }
 
 /**
@@ -45,7 +48,7 @@ export function assertSafeToApply(
   remoteCount: number,
   { allowMassDelete }: { allowMassDelete: boolean },
 ): void {
-  if (plan.put.length + plan.unchanged.length === 0) {
+  if (plan.add.length + plan.update.length + plan.unchanged.length === 0) {
     throw new Error("公開するページが 1 つもありません。設定ファイルを確かめてください");
   }
   if (

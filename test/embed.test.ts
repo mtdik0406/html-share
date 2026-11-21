@@ -190,6 +190,34 @@ describe("embedPage: 埋め込み", () => {
     assert.equal(attr(html, "a", "href"), "other.html");
   });
 
+  it("埋め込まない属性の相対パス（a のリンク先、link rel=preload など）は警告する", () => {
+    const { warnings } = embed(
+      page(
+        '<a href="other.html">x</a><a href="#top">t</a><a href="https://example.com/">e</a>',
+        '<link rel="preload" href="f.woff2" as="font">',
+      ),
+    );
+    assert.equal(warnings.length, 2);
+  });
+
+  it("CSS の文字列の中の url( は素材として扱わない", () => {
+    const css = '.x::after { content: "see url(foo)" }';
+    const { html, warnings } = embed(page("", `<style>${css}</style>`));
+    assert.ok(html.includes(css));
+    assert.equal(warnings.length, 0);
+  });
+
+  it("読み取れない url( は残して警告する", () => {
+    const { warnings } = embed(page("", "<style>p { background: url(a\\ b.png) }</style>"));
+    assert.equal(warnings.length, 1);
+  });
+
+  it('フラグメントの " は、CSS の文字列が閉じないようにエスケープする', () => {
+    write("a.svg", "<svg/>");
+    const { html } = embed(page("", `<style>p { background: url('a.svg#a"b') }</style>`));
+    assert.match(html, /#a\\"b"\)/);
+  });
+
   it("外部の URL は書き換えずに残し、警告を返す", () => {
     const { html, warnings } = embed(page('<img src="https://example.com/a.png">'));
     assert.equal(attr(html, "img", "src"), "https://example.com/a.png");
@@ -239,6 +267,20 @@ describe("embedPage: 拒否する入力", () => {
   it("<use> から別ファイルの SVG を参照するとエラー（ブラウザが data: を描画しない）", () => {
     write("icons.svg", "<svg/>");
     assert.throws(() => embed(page('<svg><use href="icons.svg#home"/></svg>')));
+  });
+
+  it("<base href> はエラー（配信時は CSP で無効になり、参照先が変わる）", () => {
+    write("a.png", "A");
+    assert.throws(() => embed(page('<img src="a.png">', '<base href="static/">')));
+  });
+
+  it("位置のわからない属性（後から現れた 2 つ目の <body>）の素材はエラー", () => {
+    write("bg.png", "BG");
+    const source = write(
+      "index.html",
+      '<!doctype html><p>x</p><body style="background:url(bg.png)"><p>y</p></body>',
+    );
+    assert.throws(() => embed(source));
   });
 
   it("/ で始まるパスはエラー", () => {

@@ -49,6 +49,13 @@ describe("acquireLock", () => {
     release();
   });
 
+  it("ほかのプロセスが取り直しの最中なら、古いロックでも拒否する", () => {
+    mkdirSync(lockDir);
+    writeFileSync(join(lockDir, "pid"), String(deadPid()));
+    mkdirSync(`${lockDir}.takeover`);
+    assert.throws(() => acquireLock(lockDir));
+  });
+
   it("PID が読めないロックは、取り直さずに拒否する", () => {
     mkdirSync(lockDir);
     assert.throws(() => acquireLock(lockDir));

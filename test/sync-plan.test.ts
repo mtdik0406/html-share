@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { assertSafeToApply, planSync, type SyncPlan } from "../scripts/lib/sync-plan.js";
 
 describe("planSync", () => {
-  it("新しいキーは put、ETag と MD5 が同じなら unchanged、違えば put、手元に無いキーは remove", () => {
+  it("新しいキーは add、ETag と MD5 が同じなら unchanged、違えば update、手元に無いキーは remove", () => {
     const plan = planSync(
       [
         { key: "pages/new/index.html", md5: "aaa" },
@@ -17,7 +17,8 @@ describe("planSync", () => {
       ],
     );
     assert.deepEqual(plan, {
-      put: ["pages/new/index.html", "pages/changed/index.html"],
+      add: ["pages/new/index.html"],
+      update: ["pages/changed/index.html"],
       unchanged: ["pages/same/index.html"],
       remove: ["pages/gone/index.html"],
     });
@@ -30,13 +31,14 @@ describe("planSync", () => {
 
   it("マルチパートの ETag（-N 付き）は MD5 と一致しないので置き直す", () => {
     const plan = planSync([{ key: "k", md5: "abc" }], [{ key: "k", etag: '"abc-2"' }]);
-    assert.deepEqual(plan.put, ["k"]);
+    assert.deepEqual(plan.update, ["k"]);
   });
 });
 
 describe("assertSafeToApply", () => {
   const plan = (keep: number, remove: number): SyncPlan => ({
-    put: [],
+    add: [],
+    update: [],
     unchanged: Array.from({ length: keep }, (_, i) => `keep-${i}`),
     remove: Array.from({ length: remove }, (_, i) => `remove-${i}`),
   });

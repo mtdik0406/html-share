@@ -153,17 +153,25 @@ function collectEdits(
   ctx: Context,
   edits: Edit[],
 ): void {
-  const location = element.sourceCodeLocation;
-  // パーサーが補った要素（書かれていない <head> など）は位置を持たず、書き換えるものもない。
-  if (!location) return;
+  if (element.tagName === "base" && element.attrs.some((a) => a.name === "href")) {
+    // 配信時は CSP の base-uri 'none' で <base> が無効になり、手元と配信先で参照先が変わる。
+    throw new Error("<base href> は使えません。素材はページからの相対パスで書いてください");
+  }
 
+  // パーサーが補った要素や、後から現れた <body> の属性を前の要素に合わせたものは、元の位置を持たない。
+  const location = element.sourceCodeLocation;
   for (const attr of element.attrs) {
     const name = attr.prefix ? `${attr.prefix}:${attr.name}` : attr.name;
-    const attrLocation = location.attrs?.[name];
-    if (!attrLocation) continue;
-
     const rewritten = rewriteAttribute(element, name, attr.value, baseDir, ctx);
     if (rewritten === attr.value) continue;
+
+    const attrLocation = location?.attrs?.[name];
+    if (!attrLocation) {
+      // 書き換えられないまま公開すると、署名のない素材の読み込みが 403 になる。
+      throw new Error(
+        `<${element.tagName} ${name}> の位置がわからず埋め込めません。タグの重複（2 つ目の <body> など）を直してください`,
+      );
+    }
     edits.push({
       start: attrLocation.startOffset,
       end: attrLocation.endOffset,
@@ -207,7 +215,10 @@ function rewriteAttribute(
       const rels = (element.attrs.find((a) => a.name === "rel")?.value ?? "")
         .toLowerCase()
         .split(/\s+/);
-      if (!rels.some((rel) => EMBEDDED_LINK_RELS.has(rel))) return value;
+      if (!rels.some((rel) => EMBEDDED_LINK_RELS.has(rel))) {
+        warnIfLocal(element, name, value, ctx);
+        return value;
+      }
       return embedReference(value, baseDir, ctx) ?? value;
     }
     case "reject-local":
@@ -218,7 +229,30 @@ function rewriteAttribute(
       }
       return value;
     case undefined:
+      if (REFERENCE_ATTRIBUTES.has(name)) warnIfLocal(element, name, value, ctx);
       return value;
+  }
+}
+
+/** 埋め込まない属性のうち、ファイルを指しうるもの。 */
+const REFERENCE_ATTRIBUTES = new Set(["src", "href", "xlink:href", "data", "poster", "srcset"]);
+
+/**
+ * 埋め込まない属性の相対パスは、配信先で署名がなく 403 になる。<a href> のリンク先もこれに当たる。
+ * 止めはしない（リンク切れでもページは読める）が、気づけるように警告する。
+ */
+function warnIfLocal(element: Element, name: string, value: string, ctx: Context): void {
+  let local: boolean;
+  try {
+    local = classifyReference(value).kind === "local";
+  } catch {
+    // / で始まるパスなども、配信先では同じく 403 になる。
+    local = true;
+  }
+  if (local) {
+    ctx.warnings.push(
+      `<${element.tagName} ${name}> の相対パスは埋め込まず、配信先では開けません: ${value}`,
+    );
   }
 }
 
@@ -307,9 +341,12 @@ export function parseSrcset(value: string): { url: string; descriptors: string }
   return candidates;
 }
 
-/** CSS のコメントは素通しする。コメントアウトした url() を見つからない素材として扱わないため。 */
+/**
+ * 前から順に、コメント・文字列の @import・url()・ただの文字列・読み取れなかった url( を拾う。
+ * ただの文字列（content: "url(x)" など）は素通しする。中の url( を素材と取り違えないため。
+ */
 const CSS_TOKEN =
-  /\/\*[\s\S]*?\*\/|@import\s+(?:"([^"]*)"|'([^']*)')|url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)/gi;
+  /\/\*[\s\S]*?\*\/|@import\s+(?:"([^"]*)"|'([^']*)')|url\(\s*(?:"([^"]*)"|'([^']*)'|([^)"'\s]*))\s*\)|"(?:[^"\\\n]|\\.)*"|'(?:[^'\\\n]|\\.)*'|url\(/gi;
 
 /**
  * CSS の中の相対パスは、その CSS ファイルを起点に解決する。
@@ -321,14 +358,34 @@ function rewriteCss(
   ctx: Context,
   stack: readonly string[] = [],
 ): string {
-  return css.replace(CSS_TOKEN, (match, importDq, importSq, urlDq, urlSq, urlBare) => {
-    if (match.startsWith("/*")) return match;
-    const isImport = importDq !== undefined || importSq !== undefined;
-    const raw: string = importDq ?? importSq ?? urlDq ?? urlSq ?? urlBare ?? "";
-    const uri = embedReference(raw, baseDir, ctx, stack);
-    if (uri === undefined) return match;
-    return isImport ? `@import url("${uri}")` : `url("${uri}")`;
-  });
+  return css.replace(
+    CSS_TOKEN,
+    (
+      match: string,
+      importDq?: string,
+      importSq?: string,
+      urlDq?: string,
+      urlSq?: string,
+      urlBare?: string,
+      offset = 0,
+    ) => {
+      if (match.startsWith("/*") || match.startsWith('"') || match.startsWith("'")) return match;
+      if (/^url\($/i.test(match)) {
+        // エスケープを含む url(a\ b.png) など。黙って残すと、配信先で 403 になる。
+        ctx.warnings.push(
+          `CSS の url( を読み取れず、埋め込んでいません: ${css.slice(offset, offset + 60)}`,
+        );
+        return match;
+      }
+      const isImport = importDq !== undefined || importSq !== undefined;
+      const raw: string = importDq ?? importSq ?? urlDq ?? urlSq ?? urlBare ?? "";
+      const uri = embedReference(raw, baseDir, ctx, stack);
+      if (uri === undefined) return match;
+      // フラグメントは元の参照から写すので、" や \ を含むと CSS の文字列が閉じてしまう。
+      const quoted = `"${uri.replace(/["\\]/g, "\\$&")}"`;
+      return isImport ? `@import url(${quoted})` : `url(${quoted})`;
+    },
+  );
 }
 
 function dataUriFor(candidate: string, ctx: Context, stack: readonly string[]): string {
