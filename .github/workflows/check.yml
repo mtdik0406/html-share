@@ -13,7 +13,7 @@ jobs:
     strategy:
       matrix:
         # engines の下限と、手元で使っている版。
-        node: [22, 24]
+        node: [22, 24, 26]
     steps:
       # action はタグではなくコミットで固定する。タグは付け替えられるため。
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
