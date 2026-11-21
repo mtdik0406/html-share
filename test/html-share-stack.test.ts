@@ -327,6 +327,19 @@ describe("HtmlShareStack", () => {
         "hid",
         "bluetooth",
         "payment",
+        "midi",
+        // 端末のセンサーは、許可を求めずに読めるブラウザがある。
+        "accelerometer",
+        "gyroscope",
+        "magnetometer",
+        "ambient-light-sensor",
+        "local-fonts",
+        "window-management",
+        "screen-wake-lock",
+        "idle-detection",
+        "xr-spatial-tracking",
+        "publickey-credentials-get",
+        "publickey-credentials-create",
       ]) {
         assert.equal(permissions.get(feature), "()", `${feature} を止めていない`);
       }
@@ -370,7 +383,11 @@ describe("HtmlShareStack", () => {
     // ロールは Fn::GetAtt [論理 ID, "Arn"] で参照される。
     const roleId: string | undefined = signFunction().Properties.Role["Fn::GetAtt"]?.[0];
     assert.ok(roleId, "ロールが見つからない");
-    const statements = Object.values(resourcesOf("AWS::IAM::Policy"))
+    // インラインのポリシーも、ロールに付けたカスタマー管理ポリシーも、どちらもロールの権限になる。
+    const statements = [
+      ...Object.values(resourcesOf("AWS::IAM::Policy")),
+      ...Object.values(resourcesOf("AWS::IAM::ManagedPolicy")),
+    ]
       .filter((p) => refsIn(p.Properties.Roles).includes(roleId))
       .flatMap((p) => p.Properties.PolicyDocument.Statement);
     assert.ok(statements.length > 0, "鍵を読む許可がない");
@@ -382,11 +399,20 @@ describe("HtmlShareStack", () => {
       assert.ok(resource.includes(`:parameter${SIGNING_KEY_PARAMETER_NAME}"`), resource);
       assert.ok(!resource.includes("*"), `Resource にワイルドカードがある: ${resource}`);
     }
-    // 管理ポリシーは、ログを書くためのものだけ。
+    // 管理ポリシーは、ログを書くための AWS 管理ポリシー 1 つだけ。
     const role = resourcesOf("AWS::IAM::Role")[roleId];
-    const managed = JSON.stringify(role.Properties.ManagedPolicyArns ?? []);
-    assert.equal((managed.match(/policy\//g) ?? []).length, 1);
-    assert.ok(managed.includes("service-role/AWSLambdaBasicExecutionRole"));
+    const managed = asArray<Json>(role.Properties.ManagedPolicyArns);
+    assert.equal(managed.length, 1, `管理ポリシーが 1 つでない: ${JSON.stringify(managed)}`);
+    assert.match(
+      JSON.stringify(managed[0]),
+      /:iam::aws:policy\/service-role\/AWSLambdaBasicExecutionRole"/,
+    );
+  });
+
+  it("署名の Lambda は、IAM で認められた呼び出しだけを受ける", () => {
+    // Function URL や、アカウントの外への呼び出しの許可があると、誰でも URL を作れてしまう。
+    assert.deepEqual(Object.keys(resourcesOf("AWS::Lambda::Url")), []);
+    assert.deepEqual(Object.keys(resourcesOf("AWS::Lambda::Permission")), []);
   });
 
   it("スクリプトが読む出力を持つ", () => {
