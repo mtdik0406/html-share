@@ -173,6 +173,7 @@ export class HtmlShareStack extends Stack {
             service: "ssm",
             resource: "parameter",
             // ARN では、名前の先頭の / を resource の区切りと兼ねる。
+            // Stryker disable next-line Regex: 名前の / は先頭の 1 つだけなので、^ を外しても同じ
             resourceName: SIGNING_KEY_PARAMETER_NAME.replace(/^\//, ""),
           }),
         ],
