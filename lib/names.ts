@@ -18,3 +18,9 @@ export const SIGN_FUNCTION_ENV = {
   keyPairId: "KEY_PAIR_ID",
   parameterName: "SIGNING_KEY_PARAMETER_NAME",
 } as const;
+
+/**
+ * 署名の鍵の世代。鍵を作り直すときに 1 増やす（docs/runbook.md）。
+ * CloudFront の公開鍵は中身を変えられないので、世代ごとに別の公開鍵として作る。
+ */
+export const SIGNING_KEY_GENERATION = 1;

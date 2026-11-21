@@ -77,7 +77,9 @@ describe("HtmlShareStack", () => {
   ];
 
   before(() => {
-    template = Template.fromStack(new HtmlShareStack(new App(), "TestStack", { publicKeyPem }));
+    template = Template.fromStack(
+      new HtmlShareStack(new App(), "TestStack", { publicKeyPem, signingKeyGeneration: 1 }),
+    );
   });
 
   it("S3 の公開アクセスを 4 項目ともブロックする", () => {
@@ -413,6 +415,46 @@ describe("HtmlShareStack", () => {
     // Function URL や、アカウントの外への呼び出しの許可があると、誰でも URL を作れてしまう。
     assert.deepEqual(Object.keys(resourcesOf("AWS::Lambda::Url")), []);
     assert.deepEqual(Object.keys(resourcesOf("AWS::Lambda::Permission")), []);
+  });
+
+  describe("鍵の世代", () => {
+    const templateFor = (signingKeyGeneration: number): Template =>
+      Template.fromStack(
+        new HtmlShareStack(new App(), "TestStack", { publicKeyPem, signingKeyGeneration }),
+      );
+    const publicKeyIds = (t: Template): string[] =>
+      Object.keys(t.findResources("AWS::CloudFront::PublicKey"));
+
+    it("1 世代目の公開鍵は、デプロイ済みの公開鍵と同じ論理 ID のまま（作り直さない）", () => {
+      assert.deepEqual(publicKeyIds(template), ["SigningPublicKey89B1E9A4"]);
+    });
+
+    it("世代を変えると、別の名前の公開鍵になる（中身を変えられないので、作り直させる）", () => {
+      const second = templateFor(2);
+      const [secondId] = publicKeyIds(second);
+      assert.ok(secondId);
+      assert.notDeepEqual([secondId], publicKeyIds(template));
+      const nameOf = (t: Template) =>
+        Object.values(t.findResources("AWS::CloudFront::PublicKey"))[0]?.Properties.PublicKeyConfig
+          .Name;
+      assert.notEqual(nameOf(second), nameOf(template));
+    });
+
+    it("世代を変えても、キーグループと Distribution は同じ論理 ID のまま", () => {
+      const second = templateFor(2);
+      for (const type of ["AWS::CloudFront::KeyGroup", "AWS::CloudFront::Distribution"]) {
+        assert.deepEqual(
+          Object.keys(second.findResources(type)),
+          Object.keys(template.findResources(type)),
+        );
+      }
+    });
+
+    it("世代が 1 以上の整数でなければ、スタックを作らない", () => {
+      for (const signingKeyGeneration of [0, -1, 1.5, Number.NaN]) {
+        assert.throws(() => templateFor(signingKeyGeneration));
+      }
+    });
   });
 
   it("スクリプトが読む出力を持つ", () => {

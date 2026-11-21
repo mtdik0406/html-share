@@ -16,6 +16,8 @@ const NODEJS_26 = new lambda.Runtime("nodejs26.x", lambda.RuntimeFamily.NODEJS);
 export interface HtmlShareStackProps extends StackProps {
   /** RSA 公開鍵の PEM。CloudFront は BEGIN/END PUBLIC KEY の行を含む形しか受け付けない。 */
   readonly publicKeyPem: string;
+  /** 鍵を作り直すたびに 1 増やす。 */
+  readonly signingKeyGeneration: number;
 }
 
 export class HtmlShareStack extends Stack {
@@ -32,7 +34,14 @@ export class HtmlShareStack extends Stack {
     });
 
     // Distribution は鍵を KeyGroup 単位で信頼する。鍵を入れ替えるときは、新旧を同じグループに並べて移行する。
-    const publicKey = new cloudfront.PublicKey(this, "SigningPublicKey", {
+    // CloudFront の公開鍵は、作ったあと中身を変えられない。鍵を作り直すときは世代を上げ、別の公開鍵として作らせる。
+    // 1 世代目は、デプロイ済みの公開鍵を作り直さないよう、世代を足す前と同じ ID にする。
+    const generation = props.signingKeyGeneration;
+    if (!Number.isInteger(generation) || generation < 1) {
+      throw new Error(`鍵の世代は 1 以上の整数にしてください: ${generation}`);
+    }
+    const publicKeyId = generation === 1 ? "SigningPublicKey" : `SigningPublicKeyGen${generation}`;
+    const publicKey = new cloudfront.PublicKey(this, publicKeyId, {
       encodedKey: props.publicKeyPem,
       comment: "html-share signed URL verification key",
     });

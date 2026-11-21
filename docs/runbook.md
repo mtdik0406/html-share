@@ -12,19 +12,26 @@
 
 ## 秘密鍵が漏れた、またはすべての URL を止めたい
 
-鍵を作り直すと、それまでに配った URL はすべて通らなくなる。
+鍵を作り直すと、それまでに配った URL はすべて通らなくなる（[ADR 10](adr/0010-signing-key-generation.md)）。
 
-1. `.keys/` の鍵を、リポジトリの外へ移すか消す（`keygen` は既存の鍵を上書きしない）
+1. `.keys/` を、リポジトリの外へ退避する（例：`mv .keys ~/html-share-keys-old`）。消さない。手順 6 が失敗したときに戻すため
 2. `pnpm run keygen`
-3. `pnpm run keys:store --overwrite`
-4. `pnpm exec cdk diff` で、変わるのが公開鍵とキーグループと、それを参照する Lambda の環境変数だけであることを確かめる
-5. `pnpm exec cdk deploy`
-6. 配り直すページの URL を `pnpm run sign` で作り直す
-7. `.keys/private.pem` を消す
+3. `lib/names.ts` の `SIGNING_KEY_GENERATION` を 1 増やしてコミットする
+4. `pnpm run keys:store --overwrite`
+5. `pnpm exec cdk diff` で、公開鍵が 1 つ足されて 1 つ消えることと、キーグループと Lambda の環境変数（Key-Pair-Id）が変わることを確かめる
+6. `pnpm exec cdk deploy`
+7. `pnpm run sign <slug> --minutes 1` で作った URL を開き、表示されることを確かめる
+8. 配り直すページの URL を `pnpm run sign` で作り直す
+9. `.keys/private.pem` と、手順 1 で退避した鍵を消す
 
-漏れた秘密鍵は、手順 5 が終わるまで有効なまま。手順 3 から 5 は続けて行う。
+漏れた秘密鍵は、手順 6 が終わるまで有効なまま。手順 4 から 6 は続けて行う。手順 4 と 6 の間に作った URL は通らないことがある。
 
-この順にするのは、Lambda が一度読んだ鍵を、実行環境が続く間持ち続けるため。手順 5 で環境変数が変わると、実行環境が作り直され、新しい鍵を読む。逆の順（deploy してから store）だと、その間に動いた実行環境が古い鍵を持ち続け、store のあとも通らない URL を作ることがある。手順 3 と 5 の間に作った URL も通らないことがあるので、手順 6 は手順 5 のあとに行う。
+手順 6 が失敗したら、スタックは古い公開鍵のまま戻る。SSM だけが新しい鍵になっているので、古い鍵に戻す。
+
+1. 新しい `.keys/` を退避し、手順 1 で退避した古い `.keys/` を戻す
+2. `pnpm run keys:store --overwrite`
+3. `SIGNING_KEY_GENERATION` を元に戻す
+4. 失敗の原因を直してから、手順 1 からやり直す
 
 ## AWS の認証情報が漏れた
 

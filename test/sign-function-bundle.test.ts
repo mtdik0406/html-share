@@ -42,6 +42,7 @@ describe("署名の Lambda のバンドル", () => {
     const app = new App();
     const stack = new HtmlShareStack(app, "BundleStack", {
       publicKeyPem: generateTestKeyPair().publicKey,
+      signingKeyGeneration: 1,
     });
     const template = Template.fromStack(stack);
     const [fn] = Object.values(template.findResources("AWS::Lambda::Function")).filter(
