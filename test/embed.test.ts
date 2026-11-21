@@ -136,7 +136,13 @@ describe("embedPage: 埋め込み", () => {
   // README の「制約」に並べた埋め込み対象。表から 1 行消えると、配信先でその素材が 403 になる。
   for (const [label, markup, tag, name] of [
     ["img の src", '<img src="a.png">', "img", "src"],
-    ["picture の source の src", '<video><source src="a.mp4"></video>', "source", "src"],
+    ["video の source の src", '<video><source src="a.mp4"></video>', "source", "src"],
+    [
+      "picture の source の srcset",
+      '<picture><source srcset="a.png"></picture>',
+      "source",
+      "srcset",
+    ],
     ["audio の src", '<audio src="a.mp3"></audio>', "audio", "src"],
     ["video の src", '<video src="a.mp4"></video>', "video", "src"],
     ["video の poster", '<video poster="a.png"></video>', "video", "poster"],
@@ -410,10 +416,13 @@ describe("embedPage: 拒否する入力", () => {
     assert.throws(() => embed(page(`<img src="${file}">`)));
   });
 
-  it("循環する @import はエラー", () => {
+  it("循環する @import はエラー（無限の再帰でスタックがあふれる前に止める）", () => {
     write("a.css", '@import "b.css";');
     write("b.css", '@import "a.css";');
-    assert.throws(() => embed(page("", '<link rel="stylesheet" href="a.css">')));
+    assert.throws(
+      () => embed(page("", '<link rel="stylesheet" href="a.css">')),
+      (err: Error) => !(err.cause instanceof RangeError),
+    );
   });
 
   it("素材の上限ちょうどは通り、1 バイト超えるとエラー", () => {
@@ -426,6 +435,13 @@ describe("embedPage: 拒否する入力", () => {
   it("既定の素材の上限は 10 MiB", () => {
     write("big.png", Buffer.alloc(10 * 1024 * 1024 + 1));
     assert.throws(() => embedPage(page('<img src="big.png">'), [root]));
+  });
+
+  it("既定のページの上限は 25 MiB（素材はどれも 10 MiB 以内でも、合わせて超えればエラー）", () => {
+    for (const name of ["a.png", "b.png", "c.png"]) write(name, Buffer.alloc(9 * 1024 * 1024));
+    assert.throws(() =>
+      embedPage(page('<img src="a.png"><img src="b.png"><img src="c.png">'), [root]),
+    );
   });
 
   it("埋め込んだ後のページは、上限ちょうどなら通る", () => {

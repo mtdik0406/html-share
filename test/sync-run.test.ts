@@ -182,7 +182,7 @@ describe("runSync: 取り下げた slug の再利用", () => {
       runSync(
         config(writePage("keep"), writePage("other")),
         dryRun,
-        deps(fakeS3().s3, d.deps).deps,
+        deps(fakeS3().s3, { lockDir: d.deps.lockDir, retiredPath: d.deps.retiredPath }).deps,
       ),
     );
   });
