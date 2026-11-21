@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:repo": "tsx tools/check-repo.ts",
+    "review:scope": "tsx tools/review-scope.ts",
     "format": "biome check --write .",
     "test": "tsx --test --experimental-test-coverage --test-coverage-include=\"scripts/**\" --test-coverage-include=\"lib/**\" --test-coverage-include=\"tools/**\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"test/**/*.test.ts\"",
     "check": "pnpm run typecheck && pnpm run lint && pnpm run lint:repo && pnpm run test"

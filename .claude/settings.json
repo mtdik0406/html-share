@@ -1,4 +1,27 @@
 {
+  "permissions": {
+    "ask": [
+      "Bash(git push *)",
+      "Bash(aws *)",
+      "Bash(pnpm exec cdk deploy *)",
+      "Bash(pnpm exec cdk destroy *)",
+      "Bash(pnpm run sync *)",
+      "Edit(/biome.json)",
+      "Edit(/tsconfig.json)",
+      "Edit(/package.json)",
+      "Edit(/pnpm-workspace.yaml)",
+      "Edit(/.nvmrc)",
+      "Edit(/.githooks/**)",
+      "Edit(/.github/**)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/hooks/**)",
+      "Edit(/.claude/skills/**)",
+      "Edit(/tools/**)",
+      "Edit(/AGENTS.md)",
+      "Edit(/CLAUDE.md)",
+      "Edit(/docs/adr/**)"
+    ]
+  },
   "hooks": {
     "PostToolUse": [
       {
