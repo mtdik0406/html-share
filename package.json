@@ -20,6 +20,7 @@
     "lint:unused": "knip",
     "lint:duplicate": "jscpd --exit-code --fail-on-empty --reporters console bin lib scripts tools test",
     "review:scope": "tsx tools/review-scope.ts",
+    "review:mutants": "tsx tools/review-mutants.ts",
     "format": "biome check --write .",
     "test": "tsx --test --experimental-test-coverage --test-coverage-include=\"scripts/**\" --test-coverage-include=\"lib/**\" --test-coverage-include=\"tools/**\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"test/**/*.test.ts\"",
     "test:mutation": "stryker run",
@@ -27,6 +28,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
+    "@stryker-mutator/api": "^10.1.1",
     "@stryker-mutator/core": "^10.1.1",
     "@stryker-mutator/tap-runner": "^10.1.1",
     "@types/node": "^26.6.6",

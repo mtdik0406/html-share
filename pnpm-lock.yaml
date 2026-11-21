@@ -191,6 +191,9 @@ importers:
       '@biomejs/biome':
         specifier: 2.6.6
         version: 2.6.6
+      '@stryker-mutator/api':
+        specifier: ^10.1.1
+        version: 10.1.1
       '@stryker-mutator/core':
         specifier: ^10.1.1
         version: 10.1.1(@types/node@26.6.6)

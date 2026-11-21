@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import {
   adrChangedOutsideStatus,
   type Finding,
@@ -18,7 +18,9 @@ function files(): string[] {
     .filter((f) => f !== "");
 }
 
+// 消したがまだ git に伝えていないファイルは、読まない。
 function readText(path: string): string | undefined {
+  if (!existsSync(path)) return undefined;
   const buffer = readFileSync(path);
   return buffer.includes(0) ? undefined : buffer.toString("utf8");
 }

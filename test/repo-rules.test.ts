@@ -13,6 +13,7 @@ describe("findForbiddenText", () => {
     ["Linux のホームの絶対パス", "see /home/someone/a.ts"],
     ["作った経緯の言葉", "学習用のツール"],
     ["段階の番号", "段階 4 で足す"],
+    ["空白のない段階の番号", "段階4で足す"],
   ] as const) {
     it(`${label} を見つける`, () => {
       assert.equal(findForbiddenText(text).length, 1);
@@ -43,6 +44,7 @@ describe("findMessageAssertions", () => {
     ["文字列", 'await assert.rejects(p, "bad");'],
     ["message を持つオブジェクト", "assert.throws(() => f(), { message: 'bad' });"],
     ["message を読む関数", "assert.throws(() => f(), (e) => e.message === 'bad');"],
+    ["ほかのキーと並んだ message", "assert.throws(() => f(), { code: 'E', message: 'bad' });"],
   ] as const) {
     it(`${label}でエラーの文言を見ていれば見つける`, () => {
       assert.equal(findMessageAssertions(source).length, 1);
@@ -53,12 +55,21 @@ describe("findMessageAssertions", () => {
     ["失敗することだけ", "assert.throws(() => f());"],
     ["エラーの種類", "assert.throws(() => f(), TypeError);"],
     ["文言以外を見る関数", "assert.throws(() => f(), (e) => e.cause instanceof RangeError);"],
+    ["文言以外のキーのオブジェクト", "assert.throws(() => f(), { code: 'E' });"],
+    ["展開だけのオブジェクト", "assert.throws(() => f(), { ...expected });"],
     ["失敗しないこと", "assert.doesNotThrow(() => f(), /x/);"],
   ] as const) {
     it(`${label}は通す`, () => {
       assert.deepEqual(findMessageAssertions(source), []);
     });
   }
+
+  it("見つけた行の番号を返す", () => {
+    assert.deepEqual(
+      findMessageAssertions("const a = 1;\nassert.throws(() => f(), /x/);").map((f) => f.line),
+      [2],
+    );
+  });
 });
 
 describe("adrChangedOutsideStatus", () => {
@@ -71,6 +82,10 @@ describe("adrChangedOutsideStatus", () => {
 
   it("変えていなければ通す", () => {
     assert.equal(adrChangedOutsideStatus(adr("採用"), adr("採用")), false);
+  });
+
+  it("行をつなげただけでも見つける", () => {
+    assert.equal(adrChangedOutsideStatus(adr("採用", "A\nB\n"), adr("採用", "AB\n")), true);
   });
 
   it("状態の行の外を変えたら見つける", () => {
