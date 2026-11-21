@@ -6,7 +6,13 @@
       "Bash(pnpm exec cdk deploy *)",
       "Bash(pnpm run sync *)"
     ],
-    "deny": ["Read(/.keys/**)", "Bash(pnpm exec cdk destroy *)", "Bash(cdk destroy *)"]
+    "deny": [
+      "Read(/.keys/**)",
+      "Bash(pnpm exec cdk destroy *)",
+      "Bash(cdk destroy *)",
+      "Edit(/.claude/settings.json)",
+      "Edit(/.claude/hooks/**)"
+    ]
   },
   "hooks": {
     "PostToolUse": [

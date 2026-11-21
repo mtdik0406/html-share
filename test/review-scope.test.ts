@@ -62,8 +62,14 @@ describe(".claude/settings.json", () => {
     ]);
   });
 
-  for (const rule of ["Read(/.keys/**)", "Bash(pnpm exec cdk destroy *)", "Bash(cdk destroy *)"]) {
-    it(`${rule} は禁止する（秘密鍵を出力に出さない、元に戻せない削除をしない）`, () => {
+  for (const rule of [
+    "Read(/.keys/**)",
+    "Bash(pnpm exec cdk destroy *)",
+    "Bash(cdk destroy *)",
+    "Edit(/.claude/settings.json)",
+    "Edit(/.claude/hooks/**)",
+  ]) {
+    it(`${rule} は禁止する（秘密鍵を出力に出さない、元に戻せない削除をしない、確認と検査を AI が外さない）`, () => {
       assert.ok((permissions.deny ?? []).includes(rule));
     });
   }
