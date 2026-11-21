@@ -11,7 +11,7 @@ export const OUTPUT_KEYS = {
 
 /**
  * 署名用の秘密鍵を置く SSM のパラメータ。CloudFormation は SecureString を作れないので、keys:store で置く。
- * 世代ごとに分ける。deploy が途中で失敗しても、古い世代の鍵がそのまま残り、戻す作業が要らないため（ADR 11）。
+ * 世代ごとに分ける。deploy が途中で失敗しても、古い世代の鍵がそのまま残り、戻す作業が要らないため（ADR 10）。
  */
 const SIGNING_KEY_PARAMETER_BASE = "/html-share/signing-private-key";
 

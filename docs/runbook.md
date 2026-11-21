@@ -12,7 +12,7 @@
 
 ## 秘密鍵が漏れた、またはすべての URL を止めたい
 
-鍵を作り直すと、それまでに配った URL はすべて通らなくなる（[ADR 10](adr/0010-signing-key-generation.md)・[ADR 11](adr/0011-signing-key-parameter-per-generation.md)）。
+鍵を作り直すと、それまでに配った URL はすべて通らなくなる（[ADR 10](adr/0010-signing-key-generations.md)）。
 
 1. `.keys/public.pem` を、世代を名前に入れてリポジトリの外へ退避する（例：今が 1 世代目なら `mkdir ~/html-share-keys-gen1 && mv .keys/public.pem ~/html-share-keys-gen1/`）。作り直しをやめるとき、古い公開鍵で deploy し直すため。`.keys/private.pem` が残っていたら消す（古い世代の秘密鍵は SSM にある）
 2. `pnpm run keygen`
