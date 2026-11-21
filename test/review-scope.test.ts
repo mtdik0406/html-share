@@ -5,6 +5,7 @@ import {
   changedLines,
   guardedFiles,
   mutationTargets,
+  reviewerCount,
   reviewScope,
   survivorsOnChangedLines,
   wholeFiles,
@@ -187,5 +188,21 @@ describe("mutationTargets", () => {
       ),
       [],
     );
+  });
+});
+
+describe("reviewerCount", () => {
+  it("コードの差分が 300 行未満なら 1 体", () => {
+    assert.equal(reviewerCount(0), 1);
+    assert.equal(reviewerCount(299), 1);
+  });
+
+  it("300 行以上 1000 行未満なら 2 体", () => {
+    assert.equal(reviewerCount(300), 2);
+    assert.equal(reviewerCount(999), 2);
+  });
+
+  it("1000 行以上なら 4 体", () => {
+    assert.equal(reviewerCount(1000), 4);
   });
 });

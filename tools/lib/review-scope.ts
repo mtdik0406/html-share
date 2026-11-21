@@ -113,3 +113,9 @@ export function mutationTargets(changed: readonly string[], sources: readonly st
     .filter((source) => changed.includes(source) || testedNames.has(baseName(source)))
     .sort();
 }
+
+/** レビューのエージェントの数。差分が小さいほど、観点を 1 体にまとめてもレビューの質が落ちにくい。 */
+export function reviewerCount(changedCodeLines: number): 1 | 2 | 4 {
+  if (changedCodeLines < 300) return 1;
+  return changedCodeLines < 1000 ? 2 : 4;
+}
