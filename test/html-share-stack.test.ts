@@ -342,6 +342,10 @@ describe("HtmlShareStack", () => {
         "xr-spatial-tracking",
         "publickey-credentials-get",
         "publickey-credentials-create",
+        "web-share",
+        "identity-credentials-get",
+        "otp-credentials",
+        "browsing-topics",
       ]) {
         assert.equal(permissions.get(feature), "()", `${feature} を止めていない`);
       }
@@ -385,13 +389,20 @@ describe("HtmlShareStack", () => {
     // ロールは Fn::GetAtt [論理 ID, "Arn"] で参照される。
     const roleId: string | undefined = signFunction().Properties.Role["Fn::GetAtt"]?.[0];
     assert.ok(roleId, "ロールが見つからない");
-    // インラインのポリシーも、ロールに付けたカスタマー管理ポリシーも、どちらもロールの権限になる。
+    // ロールの権限になるのは、ロールを指すポリシー（インライン・カスタマー管理・RolePolicy）と、ロール自身の Policies。
+    const role = resourcesOf("AWS::IAM::Role")[roleId];
     const statements = [
       ...Object.values(resourcesOf("AWS::IAM::Policy")),
       ...Object.values(resourcesOf("AWS::IAM::ManagedPolicy")),
     ]
       .filter((p) => refsIn(p.Properties.Roles).includes(roleId))
-      .flatMap((p) => p.Properties.PolicyDocument.Statement);
+      .concat(
+        Object.values(resourcesOf("AWS::IAM::RolePolicy")).filter((p) =>
+          refsIn(p.Properties.RoleName).includes(roleId),
+        ),
+        asArray<Json>(role.Properties.Policies),
+      )
+      .flatMap((p) => p.PolicyDocument?.Statement ?? p.Properties.PolicyDocument.Statement);
     assert.ok(statements.length > 0, "鍵を読む許可がない");
     for (const statement of statements) {
       assert.equal(statement.Effect, "Allow");
@@ -402,7 +413,6 @@ describe("HtmlShareStack", () => {
       assert.ok(!resource.includes("*"), `Resource にワイルドカードがある: ${resource}`);
     }
     // 管理ポリシーは、ログを書くための AWS 管理ポリシー 1 つだけ。
-    const role = resourcesOf("AWS::IAM::Role")[roleId];
     const managed = asArray<Json>(role.Properties.ManagedPolicyArns);
     assert.equal(managed.length, 1, `管理ポリシーが 1 つでない: ${JSON.stringify(managed)}`);
     assert.match(

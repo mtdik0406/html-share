@@ -121,6 +121,11 @@ export class HtmlShareStack extends Stack {
               "xr-spatial-tracking=()",
               "publickey-credentials-get=()",
               "publickey-credentials-create=()",
+              // 署名付き URL や端末の情報を、ほかのアプリや識別子の仕組みへ渡させない。
+              "web-share=()",
+              "identity-credentials-get=()",
+              "otp-credentials=()",
+              "browsing-topics=()",
             ].join(", "),
             override: true,
           },
