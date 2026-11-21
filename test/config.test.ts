@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { parseConfig } from "../scripts/lib/config.js";
 
 const configDir = "/work/conf";
-const home = "/home/me";
+const home = "/u/me";
 const parse = (data: unknown) => parseConfig(JSON.stringify(data), configDir, home);
 
 describe("parseConfig: 広すぎる roots", () => {
@@ -11,7 +11,7 @@ describe("parseConfig: 広すぎる roots", () => {
   const parseRoots = (roots: string[]) =>
     parseConfig(JSON.stringify({ roots, pages: [] }), configDir, home, protectedDirs);
 
-  for (const root of ["~", "/", "/home", "/work", "/work/repo", "/work/repo/"]) {
+  for (const root of ["~", "/", "/u", "/work", "/work/repo", "/work/repo/"]) {
     it(`${root} はエラー（ホームやリポジトリを丸ごと公開できる範囲にしない）`, () => {
       assert.throws(() => parseRoots([root]));
     });
@@ -35,7 +35,7 @@ describe("parseConfig", () => {
       pages: [{ slug: "a", source: "pages/a/index.html" }],
     });
     assert.deepEqual(config, {
-      roots: ["/work/conf/pages", "/home/me/shared", "/abs"],
+      roots: ["/work/conf/pages", "/u/me/shared", "/abs"],
       pages: [{ slug: "a", source: "/work/conf/pages/a/index.html" }],
     });
   });
