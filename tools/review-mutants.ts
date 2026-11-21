@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { changedFiles, mergeBase, parseScopeArgs } from "./changed-files.js";
 import { changedLines, survivorsOnChangedLines, wholeFiles } from "./lib/review-scope.js";
 
 const REPORT = "reports/mutation/mutation.json";
@@ -13,17 +14,17 @@ if (!existsSync(REPORT)) {
 }
 
 // ファイルを指定したら、その全体を見る（変える前に、今のテストが足りているかを確かめるとき）。
-// 指定がなければ、main から変えた行と新しいファイルを見る。
-const targets = process.argv.slice(2);
+// 指定がなければ、基点（--base、既定は main）から変えた行と新しいファイルを見る。
+const { base, positionals: targets } = parseScopeArgs();
 let lines: Map<string, Set<number>>;
 if (targets.length > 0) {
   lines = readAll(targets);
 } else {
-  lines = changedLines(git("diff", "--unified=0", git("merge-base", "main", "HEAD").trim()));
-  const untracked = git("ls-files", "--others", "--exclude-standard")
-    .split("\n")
-    .filter((f) => f !== "" && existsSync(f));
-  for (const [file, set] of readAll(untracked)) lines.set(file, set);
+  // quotePath を切らないと、日本語などの名前が引用符付きになり、変えた行を拾えない。
+  lines = changedLines(git("-c", "core.quotePath=false", "diff", "--unified=0", mergeBase(base)));
+  for (const [file, set] of readAll(changedFiles(base).untracked.filter((f) => existsSync(f)))) {
+    lines.set(file, set);
+  }
 }
 
 const missed = survivorsOnChangedLines(JSON.parse(readFileSync(REPORT, "utf8")), lines);

@@ -5,7 +5,7 @@ import {
   changedLines,
   countChangedLines,
   guardedFiles,
-  mutationTargets,
+  mutationPlan,
   reviewerCount,
   reviewScope,
   survivorsOnChangedLines,
@@ -142,54 +142,69 @@ describe("wholeFiles", () => {
   });
 });
 
-describe("mutationTargets", () => {
+describe("mutationPlan", () => {
   const sources = [
     "lib/html-share-stack.ts",
     "lib/sign-function/sign-request.ts",
     "scripts/lib/embed.ts",
     "tools/lib/review-scope.ts",
   ];
+  const files = (changed: string[], from = sources) => mutationPlan(changed, from);
 
   it("変えたソースのうち、変異の対象のものだけを選ぶ", () => {
     assert.deepEqual(
-      mutationTargets(
-        ["scripts/lib/embed.ts", "scripts/sync.ts", "README.md", "lib/gone.ts"],
-        sources,
-      ),
-      ["scripts/lib/embed.ts"],
+      files(["scripts/lib/embed.ts", "scripts/sync.ts", "README.md", "lib/gone.ts"]),
+      {
+        all: false,
+        files: ["scripts/lib/embed.ts"],
+      },
     );
   });
 
   it("変えたテストと同じ名前のソースも選ぶ", () => {
-    assert.deepEqual(
-      mutationTargets(["test/sign-request.test.ts", "test/html-share-stack.test.ts"], sources),
-      ["lib/html-share-stack.ts", "lib/sign-function/sign-request.ts"],
-    );
+    assert.deepEqual(files(["test/sign-request.test.ts", "test/html-share-stack.test.ts"]), {
+      all: false,
+      files: ["lib/html-share-stack.ts", "lib/sign-function/sign-request.ts"],
+    });
   });
 
   it("同じファイルは 1 回だけ、並びをそろえて返す", () => {
     assert.deepEqual(
-      mutationTargets(
+      files(
         ["tools/lib/review-scope.ts", "test/review-scope.test.ts", "lib/html-share-stack.ts"],
         [...sources].reverse(),
       ),
-      ["lib/html-share-stack.ts", "tools/lib/review-scope.ts"],
+      { all: false, files: ["lib/html-share-stack.ts", "tools/lib/review-scope.ts"] },
     );
   });
 
-  it("対応するソースのないテストや helper は選ばない", () => {
-    assert.deepEqual(
-      mutationTargets(
-        [
-          "test/helpers/keys.ts",
-          "test/tdd-red.test.ts",
-          "docs/test/embed.test.ts",
-          "test/embed.test.ts.orig",
-        ],
-        sources,
-      ),
-      [],
-    );
+  it("変えたものがなければ、何も選ばない", () => {
+    assert.deepEqual(files(["README.md", "docs/test/embed.test.ts"]), {
+      all: false,
+      files: [],
+    });
+  });
+
+  it("名前の合うソースのないテストや helper を変えたら、全体にする", () => {
+    for (const changed of [
+      "test/helpers/keys.ts",
+      "test/sign-function-bundle.test.ts",
+      "test/embed.test.ts.orig",
+    ]) {
+      assert.deepEqual(files(["scripts/lib/embed.ts", changed]), { all: true }, changed);
+    }
+  });
+
+  it("依存や設定を変えたら、全体にする", () => {
+    for (const changed of [
+      "package.json",
+      "pnpm-lock.yaml",
+      "stryker.config.json",
+      "tsconfig.json",
+      "tools/stryker-message-ignorer.js",
+    ]) {
+      assert.deepEqual(files([changed]), { all: true }, changed);
+    }
   });
 });
 

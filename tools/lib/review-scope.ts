@@ -97,22 +97,39 @@ export function wholeFiles(contents: Record<string, string>): Map<string, Set<nu
   );
 }
 
+/** 変えると、どのソースの変異の結果も変わりうるファイル。 */
+const AFFECTS_ALL_MUTANTS = new Set([
+  "package.json",
+  "pnpm-lock.yaml",
+  "stryker.config.json",
+  "tsconfig.json",
+  "tools/stryker-message-ignorer.js",
+]);
+
+export type MutationPlan = { all: true } | { all: false; files: string[] };
+
 /**
- * 変異テストを流すファイル。変えたソースと、変えたテストと同じ名前のソース。
+ * 変異テストを流す範囲。変えたソースと、変えたテストと同じ名前のソース。
+ * 名前の合うソースのないテスト（helper を含む）や依存・設定を変えたら、どのソースに効くか分からないので全体にする。
  * sources は、変異の対象のファイルの一覧（stryker.config.json の mutate に当たるもの）。
  */
-export function mutationTargets(changed: readonly string[], sources: readonly string[]): string[] {
+export function mutationPlan(changed: readonly string[], sources: readonly string[]): MutationPlan {
   const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-  const testedNames = new Set(
-    changed.flatMap((file) => {
-      const match = /^test\/([^/]+)\.test\.ts$/.exec(file);
-      // Stryker disable next-line ArrayDeclaration: ソースの名前に当たらない値が入っても、選ぶものは同じ
-      return match ? [`${match[1]}.ts`] : [];
-    }),
-  );
-  return sources
+  const sourceNames = new Set(sources.map(baseName));
+  const testedNames = new Set<string>();
+  for (const file of changed) {
+    if (AFFECTS_ALL_MUTANTS.has(file)) return { all: true };
+    if (!file.startsWith("test/")) continue;
+    // Stryker disable next-line Regex: test/ で始まることは上で確かめているので、^ の有無で結果は同じ
+    const name = /^test\/([^/]+)\.test\.ts$/.exec(file)?.[1];
+    // Stryker disable next-line ConditionalExpression: name がないと "undefined.ts" を探して見つからず、結果は同じ
+    if (name === undefined || !sourceNames.has(`${name}.ts`)) return { all: true };
+    testedNames.add(`${name}.ts`);
+  }
+  const files = sources
     .filter((source) => changed.includes(source) || testedNames.has(baseName(source)))
     .sort();
+  return { all: false, files };
 }
 
 /** レビューのエージェントの数。差分が小さいほど、観点を 1 体にまとめてもレビューの質が落ちにくい。 */
