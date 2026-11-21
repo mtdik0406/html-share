@@ -54,15 +54,23 @@ describe("assertSafeToApply", () => {
     assert.doesNotThrow(() => assertSafeToApply(plan(3, 0), 3, deny));
   });
 
-  it("2 割未満の削除は通る（6 ページのうち 1）", () => {
-    assert.doesNotThrow(() => assertSafeToApply(plan(5, 1), 6, deny));
+  it("1 ページだけの削除は、割合が大きくても通る（2 ページのうち 1）", () => {
+    assert.doesNotThrow(() => assertSafeToApply(plan(1, 1), 2, deny));
   });
 
-  it("2 割ちょうどの削除は止める（5 ページのうち 1）", () => {
-    assert.throws(() => assertSafeToApply(plan(4, 1), 5, deny));
+  it("2 ページ以上でも、2 割未満なら通る（11 ページのうち 2）", () => {
+    assert.doesNotThrow(() => assertSafeToApply(plan(9, 2), 11, deny));
   });
 
-  it("フラグがあれば 2 割以上の削除も通る", () => {
+  it("2 ページ以上かつ 2 割ちょうどは止める（10 ページのうち 2）", () => {
+    assert.throws(() => assertSafeToApply(plan(8, 2), 10, deny));
+  });
+
+  it("2 ページ以上かつ 2 割以上は止める（3 ページのうち 2）", () => {
+    assert.throws(() => assertSafeToApply(plan(1, 2), 3, deny));
+  });
+
+  it("フラグがあれば、2 ページ以上かつ 2 割以上の削除も通る", () => {
     assert.doesNotThrow(() => assertSafeToApply(plan(1, 4), 5, allow));
   });
 });

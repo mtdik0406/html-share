@@ -16,7 +16,11 @@ export interface SyncPlan {
   remove: string[];
 }
 
-/** S3 のページのうち、この割合以上を一度に消す同期は、明示しない限り実行しない。 */
+/**
+ * この件数以上、かつ S3 のページのこの割合以上を一度に消す同期は、明示しない限り実行しない。
+ * 1 ページの削除は普通の取り下げなので通す。止めると毎回フラグを付ける癖がつき、歯止めが効かなくなる。
+ */
+const MASS_DELETE_MIN_COUNT = 2;
 const MASS_DELETE_RATIO = 0.2;
 
 /**
@@ -52,7 +56,7 @@ export function assertSafeToApply(
     throw new Error("公開するページが 1 つもありません。設定ファイルを確かめてください");
   }
   if (
-    plan.remove.length > 0 &&
+    plan.remove.length >= MASS_DELETE_MIN_COUNT &&
     plan.remove.length >= remoteCount * MASS_DELETE_RATIO &&
     !allowMassDelete
   ) {
