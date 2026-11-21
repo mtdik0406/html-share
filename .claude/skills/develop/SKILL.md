@@ -59,7 +59,7 @@ description: html-share のコード（scripts/・lib/・bin/・tools/ とその
 
 ## 4. 検査
 
-1. 範囲を決める。引数でファイルや範囲が指定されたらそれに従い、なければ `pnpm run review:scope` の「範囲」を使う。別のブランチに重ねたブランチでは、`review:scope`・`test:mutation:scope`・`review:mutants` に `--base <親のブランチ>` を渡す。「ユーザーの判断が要る変更」は、そのまま報告に写す
+1. 範囲を決める。引数でファイルや範囲が指定されたらそれに従い、なければ `pnpm run review:scope` の「範囲」を使う。別のブランチに重ねたブランチでは、`review:scope`・`test:mutation:scope`・`review:mutants` に `--base <親のブランチ>` を渡す。先に main を最新にする（手元の main が古いと、ほかの変更まで範囲に入る）。「ユーザーの判断が要る変更」は、そのまま報告に写す
 2. `pnpm run check`。落ちたら、レビューの前に直す
 3. `pnpm run test:mutation:scope`。変えたファイルだけを、前回の結果を使って流す。どのソースに効くか分からない変更（helper・依存・設定）があれば、スクリプトが全体を流して前回の結果を作り直す。結果が怪しいときは `--all` で作り直す。スコアが下限を下回って落ちたら、下限を下げずにテストを足す
 4. `pnpm run review:mutants`。見逃した変異の一覧を控える
