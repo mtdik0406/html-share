@@ -71,22 +71,15 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 
 - **ページは 1 ファイルで配る。** `sync` が、相対パスで読む素材を data URI にしてページに埋め込む。
   - 別のファイルとして置いた素材には署名がなく 403 になるため（署名は URL ごとの canned policy）
-  - 埋め込むのは `img`・`source`・`script`・`audio`・`video`・`track`・`input` の `src`、`srcset`、`video` の `poster`、SVG の `image` の `href`、`link rel="stylesheet"`・`"icon"` の `href`、CSS（`<style>`・`style` 属性・CSS ファイル）の `url()` と `@import`
-  - 埋め込める拡張子は `scripts/lib/embed.ts` の一覧にあるものだけ。素材は 1 つ 10 MiB、埋め込んだ後のページは 25 MiB まで
+  - 対象の属性・拡張子・大きさの上限は `scripts/lib/embed.ts` にある。対象外の相対パスと外部の URL には、`sync` が警告を出す
   - JS の中の `import` は解決しない。JS は 1 ファイルにまとめておく
   - SVG の `<use>` から別ファイルの SVG は参照できない（ブラウザが data URI を描画しない）。SVG をページに直接書く
   - `/` で始まるパスは使えない。ページからの相対パスにする
   - `<base href>` は使えない。配信時は CSP で無効になり、手元と参照先が変わるため
-  - CSS の `image-set()` の中の文字列（`url()` で包まないもの）は埋め込まない
-  - 埋め込まない属性の相対パス（`<a href>` のリンク先、`<link rel="preload">` など）は、配信先では開けない。`sync` は警告を出す
   - HTML は UTF-8 で書く
-  - 外部の URL（CDN のライブラリ、Google Fonts、外部の画像など）は CSP で読み込めない。`sync` は警告を出して、そのまま残す
+  - 外部の URL（CDN のライブラリ、Google Fonts など）は CSP で読み込めない
 - **ページは sandbox の中で動き、許されるのはインラインの JS の実行だけ。** 設定は `lib/html-share-stack.ts` の Content-Security-Policy。
-  - `fetch`・XHR・WebSocket は通らない。外部の API を呼ぶページは動かない
-  - Cookie・`localStorage`・`sessionStorage` は使えない（触ると例外になる）
-  - `target="_blank"` のリンクは開かない（何も起きない）
-  - フォームの送信、`alert`・`confirm`・`print`、ダウンロードはできない
-  - `eval` と `new Function` は使えない
+  - 通信（`fetch` など）、Cookie と Storage、別タブ、フォームの送信、ダイアログ、`eval` は使えない
 - **外への持ち出しは減らしているが、ゼロではない。** 信用できない JS を含むページは公開しない。
   - ページの JS が自分自身を外部の URL へ移動させると、そのページの署名付き URL や閲覧者の情報を渡せる。ヘッダーでは止められない
   - WebRTC など、CSP で止めきれない通信の経路がある（ブラウザによって異なる）
@@ -96,37 +89,11 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 
 ## 開発
 
-検査は次の 3 か所で自動で実行される。通らない変更は、コミットも push もしない。
-
-- コミットの前（`.githooks/pre-commit`）。`pnpm install` で `core.hooksPath` が設定される
-- push と PR の CI（`.github/workflows/check.yml`）
-- Claude Code で作業するとき（`.claude/settings.json`）。編集のたびに Biome で整え、作業を終える前に `pnpm run check` を通す
-
-どれも作業ツリーのコード（テストや `package.json` のスクリプト）を実行する。信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない。
-
-テストは網羅率（行 95%・分岐 90%・関数 95%）を下回ると失敗する。測るのはテストが読み込むファイルだけで、AWS を呼ぶ入口のスクリプトは含まない。
-
-```sh
-pnpm run check        # 型チェック・lint・テストをまとめて実行する
-pnpm run format       # 書式を直す
-pnpm exec cdk synth   # テンプレートを cdk.out/ に出す（AWS には何も作らない）
-pnpm exec cdk diff    # AWS 上の今の状態との差分を見る
-```
-
-| ディレクトリ   | 中身                                                               |
-| -------------- | ------------------------------------------------------------------ |
-| `bin/`         | CDK アプリの入口。どのスタックを、どの設定で作るか                 |
-| `lib/`         | スタックの定義（S3・CloudFront・公開鍵・応答ヘッダー）             |
-| `scripts/`     | CLI（keygen・sync・sign）                                          |
-| `scripts/lib/` | CLI が使う部品。AWS を呼ばない純粋な関数は、ここに分けてテストする |
-| `test/`        | スタックの安全性の不変条件と、純粋な関数の境界値のテスト           |
-| `samples/`     | 動作確認用の HTML                                                  |
-| `.githooks/`   | コミットの前に `pnpm run check` を実行する hook                    |
-| `.claude/`     | Claude Code の hook（編集後の整形と、終える前の検査）              |
+作業の約束は [AGENTS.md](AGENTS.md)、設計の判断とその理由は [docs/adr/](docs/adr/) にある。`pnpm run check` が、コミットの前（`.githooks/`）・CI・Claude Code の作業の終わり（`.claude/`）で実行される。どれも作業ツリーのコードを実行するので、信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない。
 
 ## 依存の更新
 
-公開から 14 日たっていない版は入れない（`pnpm-workspace.yaml` の `minimumReleaseAge`）。乗っ取られた版は数日で見つかり、取り下げられることが多いため。下限を満たす版が範囲に 1 つもないときは、インストールが失敗する。
+公開から 14 日たっていない版は入れない（`pnpm-workspace.yaml` の `minimumReleaseAge`）。乗っ取られた版は数日で見つかり、取り下げられることが多いため。
 
 脆弱性の修正版を 14 日待てないときだけ、その版を例外にする。
 
