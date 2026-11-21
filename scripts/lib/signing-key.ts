@@ -27,7 +27,6 @@ export interface StoreSigningKeyInput {
   parameterName: string;
   privateKeyPem: string;
   publicKeyPem: string;
-  overwrite: boolean;
 }
 
 /**
@@ -54,7 +53,8 @@ export async function storeSigningKey(ssm: SsmSender, input: StoreSigningKeyInpu
       // KeyId を渡さないので、AWS 管理キー aws/ssm で暗号化される（ADR 9）。
       Type: "SecureString",
       Tier: "Standard",
-      Overwrite: input.overwrite,
+      // 使っている世代の鍵を、CloudFront と対でない鍵で上書きさせない。作り直しは世代を上げて新しい名前に置く（ADR 12）。
+      Overwrite: false,
     }),
   );
 }

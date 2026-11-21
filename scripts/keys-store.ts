@@ -10,19 +10,15 @@ const parameterName = signingKeyParameterName(SIGNING_KEY_GENERATION);
 
 // 鍵の中身は表示しない。読んだ値は SDK にだけ渡す。
 await runCli(async () => {
-  const { positionals, values } = parseArgs({
-    allowPositionals: true,
-    options: { overwrite: { type: "boolean", default: false } },
-  });
+  const { positionals } = parseArgs({ allowPositionals: true });
   if (positionals.length !== 0) {
-    throw new Error("使い方: pnpm run keys:store [--overwrite]");
+    throw new Error("使い方: pnpm run keys:store");
   }
 
   await storeSigningKey(new SSMClient({}), {
     parameterName,
     privateKeyPem: await readFile(PRIVATE_KEY_PATH, "utf8"),
     publicKeyPem: await readFile(PUBLIC_KEY_PATH, "utf8"),
-    overwrite: values.overwrite,
   });
   console.log(`秘密鍵を SSM の ${parameterName} に置きました`);
 });

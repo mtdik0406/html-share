@@ -42,7 +42,6 @@ describe("storeSigningKey", () => {
       parameterName: NAME,
       privateKeyPem: pair.privateKey,
       publicKeyPem: pair.publicKey,
-      overwrite: false,
     });
     assert.equal(sent.length, 1);
     const [command] = sent;
@@ -56,19 +55,6 @@ describe("storeSigningKey", () => {
     });
   });
 
-  it("上書きを指定したときだけ、既存の値を上書きする", async () => {
-    const { ssm, sent } = fakeSsm();
-    await storeSigningKey(ssm, {
-      parameterName: NAME,
-      privateKeyPem: pair.privateKey,
-      publicKeyPem: pair.publicKey,
-      overwrite: true,
-    });
-    const [command] = sent;
-    assert.ok(command instanceof PutParameterCommand);
-    assert.equal(command.input.Overwrite, true);
-  });
-
   it("秘密鍵が公開鍵と対でなければ、送らずに失敗する", async () => {
     const { ssm, sent } = fakeSsm();
     const other = generateTestKeyPair();
@@ -77,7 +63,6 @@ describe("storeSigningKey", () => {
         parameterName: NAME,
         privateKeyPem: other.privateKey,
         publicKeyPem: pair.publicKey,
-        overwrite: false,
       }),
     );
     assert.equal(sent.length, 0);
@@ -91,7 +76,6 @@ describe("storeSigningKey", () => {
           parameterName: NAME,
           privateKeyPem,
           publicKeyPem: pair.publicKey,
-          overwrite: false,
         }),
       );
     }
