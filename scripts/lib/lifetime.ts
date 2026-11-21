@@ -24,13 +24,17 @@ export function parseLifetimeMs({ days, minutes }: LifetimeOptions): number {
         ? toPositiveNumber("--days", days) * DAY_MS
         : DEFAULT_DAYS * DAY_MS;
 
-  if (ms < MIN_LIFETIME_MS) {
+  validateLifetimeMs(ms);
+  return ms;
+}
+
+export function validateLifetimeMs(ms: number): void {
+  if (!Number.isFinite(ms) || ms < MIN_LIFETIME_MS) {
     throw new Error("期限は 1 分以上にしてください");
   }
   if (ms > MAX_DAYS * DAY_MS) {
     throw new Error(`期限は ${MAX_DAYS} 日以内にしてください`);
   }
-  return ms;
 }
 
 function toPositiveNumber(flag: string, raw: string): number {
