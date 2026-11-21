@@ -102,3 +102,21 @@ export function findMissingReferences(
   });
   return findings;
 }
+
+/** 手元の秘密鍵を読んでよいのは、鍵を作るときと SSM に置くときだけ。署名は Lambda が SSM の鍵で行う（ADR 9）。 */
+const PRIVATE_KEY_READERS = new Set([
+  "scripts/lib/paths.ts",
+  "scripts/lib/keygen.ts",
+  "scripts/keys-store.ts",
+  "test/keygen.test.ts",
+]);
+
+export function findPrivateKeyAccess(path: string, text: string): Finding[] {
+  if (!path.endsWith(".ts") || PRIVATE_KEY_READERS.has(path)) return [];
+  return text.split("\n").flatMap((lineText, i) =>
+    /\bPRIVATE_KEY_(?:PATH|FILE)\b/.test(lineText)
+      ? // Stryker disable next-line StringLiteral: 表示の文言
+        [{ line: i + 1, reason: "秘密鍵の場所を参照している（署名は Lambda が行う）" }]
+      : [],
+  );
+}

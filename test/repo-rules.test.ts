@@ -5,6 +5,7 @@ import {
   findForbiddenText,
   findMessageAssertions,
   findMissingReferences,
+  findPrivateKeyAccess,
 } from "../tools/lib/repo-rules.js";
 
 describe("findForbiddenText", () => {
@@ -117,5 +118,33 @@ describe("findMissingReferences", () => {
       findMissingReferences(text, known).map((f) => f.line),
       [2, 3],
     );
+  });
+});
+
+describe("findPrivateKeyAccess", () => {
+  const code = 'import { PRIVATE_KEY_PATH } from "./lib/paths.js";\nreadFile(PRIVATE_KEY_PATH);';
+
+  it("決めた場所の外のコードが、秘密鍵の場所を参照していたら見つける", () => {
+    assert.deepEqual(
+      findPrivateKeyAccess("scripts/sign.ts", code).map((f) => f.line),
+      [1, 2],
+    );
+    assert.equal(findPrivateKeyAccess("lib/sign-function/index.ts", "PRIVATE_KEY_FILE").length, 1);
+  });
+
+  it("鍵を作る所と SSM に置く所は、参照してよい", () => {
+    for (const path of [
+      "scripts/lib/paths.ts",
+      "scripts/lib/keygen.ts",
+      "scripts/keys-store.ts",
+      "test/keygen.test.ts",
+    ]) {
+      assert.deepEqual(findPrivateKeyAccess(path, code), []);
+    }
+  });
+
+  it("コードでないファイルと、名前の一部が同じだけの識別子は見ない", () => {
+    assert.deepEqual(findPrivateKeyAccess("README.md", code), []);
+    assert.deepEqual(findPrivateKeyAccess("scripts/sign.ts", "MY_PRIVATE_KEY_PATHS"), []);
   });
 });

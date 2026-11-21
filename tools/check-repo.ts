@@ -6,6 +6,7 @@ import {
   findForbiddenText,
   findMessageAssertions,
   findMissingReferences,
+  findPrivateKeyAccess,
 } from "./lib/repo-rules.js";
 
 // 規則そのものと、そのテストの例は、見つける対象の文字列を含む。
@@ -51,6 +52,7 @@ for (const path of files()) {
   if (text === undefined) continue;
   if (!EXEMPT_FROM_TEXT_RULES.has(path)) report(path, findForbiddenText(text));
   if (path.startsWith("test/") && path.endsWith(".ts")) report(path, findMessageAssertions(text));
+  if (!EXEMPT_FROM_TEXT_RULES.has(path)) report(path, findPrivateKeyAccess(path, text));
   // ADR は決めた時点の記録なので、後で名前が変わった参照も残す。
   if (path.endsWith(".md") && !path.startsWith("docs/adr/")) {
     report(path, findMissingReferences(text, known));
