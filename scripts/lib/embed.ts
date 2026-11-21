@@ -9,7 +9,7 @@ type Element = DefaultTreeAdapterTypes.Element;
  * 埋め込んでよい素材の種類。ここに無い拡張子はエラーにする。
  * 秘密鍵や設定ファイルを、相対パスの書き間違いでページに入れて公開しないため。
  */
-const MIME_TYPES: Readonly<Record<string, string>> = {
+export const MIME_TYPES: Readonly<Record<string, string>> = {
   ".png": "image/png",
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",

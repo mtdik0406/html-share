@@ -2,6 +2,7 @@
 import assert from "node:assert/strict";
 import { createVerify, generateKeyPairSync } from "node:crypto";
 import { describe, it } from "node:test";
+import { pageKey } from "../scripts/lib/page.js";
 import { signPageUrl } from "../scripts/lib/signed-url.js";
 
 const { publicKey, privateKey } = generateKeyPairSync("rsa", {
@@ -46,6 +47,13 @@ const sign = (slug: string): string =>
 const BEFORE_EXPIRY = new Date(EXPIRES_AT.getTime() - 1000);
 
 describe("signPageUrl", () => {
+  it("ページを置いた場所（S3 のキーと同じパス）に署名する", () => {
+    const url = new URL(sign("page-a"));
+    assert.equal(url.protocol, "https:");
+    assert.equal(url.host, DOMAIN);
+    assert.equal(url.pathname, `/${pageKey("page-a")}`);
+  });
+
   it("期限内なら受け入れられる", () => {
     assert.equal(cloudFrontAccepts(sign("page-a"), BEFORE_EXPIRY), true);
   });

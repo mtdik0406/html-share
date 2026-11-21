@@ -7,6 +7,7 @@ import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
 import { OUTPUT_KEYS } from "../lib/names.js";
+import { MIME_TYPES } from "../scripts/lib/embed.js";
 
 // biome-ignore lint/suspicious/noExplicitAny: CloudFormation テンプレートは任意の JSON
 type Json = any;
@@ -84,6 +85,35 @@ describe("HtmlShareStack", () => {
       assert.ok(sourceArnRefs.length > 0, "SourceArn の条件がない");
       for (const ref of sourceArnRefs.filter((r) => !r.startsWith("AWS::"))) {
         assert.ok(distributionIds.includes(ref), `このスタックにない参照: ${ref}`);
+      }
+    }
+  });
+
+  it("CloudFront に許すのはページの読み取りだけ（書き換えも削除もさせない）", () => {
+    const cloudFrontAllows = bucketPolicyStatements().filter(
+      (s) =>
+        s.Effect === "Allow" && asArray(s.Principal?.Service).includes("cloudfront.amazonaws.com"),
+    );
+    assert.ok(cloudFrontAllows.length > 0);
+    for (const s of cloudFrontAllows) {
+      assert.deepEqual(asArray(s.Action), ["s3:GetObject"]);
+    }
+    for (const distribution of Object.values(resourcesOf("AWS::CloudFront::Distribution"))) {
+      for (const behavior of behaviorsOf(distribution)) {
+        // 省略時の既定は GET と HEAD。
+        for (const method of asArray<string>(behavior.AllowedMethods)) {
+          assert.ok(["GET", "HEAD"].includes(method), `${method} を受け付ける`);
+        }
+      }
+    }
+  });
+
+  it("すべてのビヘイビアがエッジでキャッシュしない（消したページや上書き前の中身を見せ続けない）", () => {
+    // AWS が管理するキャッシュポリシー CachingDisabled の ID。
+    const CACHING_DISABLED = "4135ea2d-6df8-44a3-9df3-4b5a84be39ad";
+    for (const distribution of Object.values(resourcesOf("AWS::CloudFront::Distribution"))) {
+      for (const behavior of behaviorsOf(distribution)) {
+        assert.equal(behavior.CachePolicyId, CACHING_DISABLED);
       }
     }
   });
@@ -204,6 +234,28 @@ describe("HtmlShareStack", () => {
       // connect-src は従うが、外への送信の要なので、default-src が緩んでも残るよう個別に固定する。
       for (const name of ["connect-src", "form-action", "frame-ancestors", "base-uri"]) {
         assert.deepEqual(directives.get(name), ["'none'"], `${name} が 'none' でない`);
+      }
+    }
+  });
+
+  it("埋め込める素材の種類は、どれも CSP で data: として読み込める", () => {
+    const directiveFor = (mime: string): string | undefined => {
+      if (mime === "text/javascript") return "script-src";
+      if (mime === "text/css") return "style-src";
+      if (mime === "text/vtt") return "media-src";
+      if (mime.startsWith("image/")) return "img-src";
+      if (mime.startsWith("font/")) return "font-src";
+      if (mime.startsWith("audio/") || mime.startsWith("video/")) return "media-src";
+      return undefined;
+    };
+    for (const config of responseHeadersPoliciesOfBehaviors()) {
+      const directives = parseCsp(
+        config.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy,
+      );
+      for (const mime of new Set(Object.values(MIME_TYPES))) {
+        const directive = directiveFor(mime);
+        assert.ok(directive, `CSP のどのディレクティブで読むか決めていない種類: ${mime}`);
+        assert.ok(directives.get(directive)?.includes("data:"), `${directive} が data: を許さない`);
       }
     }
   });

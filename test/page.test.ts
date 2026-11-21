@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertSlug, pageKey, pageUrl } from "../scripts/lib/page.js";
+import { assertSlug, PAGES_PREFIX, pageKey, pageUrl } from "../scripts/lib/page.js";
 
 describe("assertSlug", () => {
   for (const [label, slug] of [
@@ -42,6 +42,10 @@ describe("pageKey / pageUrl", () => {
     const url = new URL(pageUrl(domain, "page-a"));
     assert.equal(url.protocol, "https:");
     assert.equal(url.host, domain);
+  });
+
+  it("キーは同期が扱う接頭辞の下にある（外れると、設定から消しても S3 から消えない）", () => {
+    assert.ok(pageKey("page-a").startsWith(PAGES_PREFIX));
   });
 
   it("slug が違えばキーも違う", () => {
