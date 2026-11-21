@@ -31,17 +31,23 @@ function parseRequest(event: unknown): SignRequest {
   return { slug, lifetimeMs };
 }
 
-export function createSignHandler(deps: SignHandlerDeps): (event: unknown) => Promise<SignResult> {
-  // 呼び出しのたびに SSM を読まないよう、実行環境が続く間は鍵を持ち続ける。
-  // 失敗した読み込みは持たない。一時的な失敗で、その実行環境が署名できないままになるため。
-  let privateKey: Promise<string> | undefined;
-  const loadOnce = (): Promise<string> => {
-    privateKey ??= deps.loadPrivateKey().catch((err: unknown) => {
-      privateKey = undefined;
+/**
+ * 呼び出しのたびに SSM を読まないよう、実行環境が続く間は読んだ値を持ち続ける。
+ * 失敗した読み込みは持たない。一時的な失敗で、その実行環境が動けないままになるため。
+ */
+export function cacheUntilFailure<T>(load: () => Promise<T>): () => Promise<T> {
+  let value: Promise<T> | undefined;
+  return () => {
+    value ??= load().catch((err: unknown) => {
+      value = undefined;
       throw err;
     });
-    return privateKey;
+    return value;
   };
+}
+
+export function createSignHandler(deps: SignHandlerDeps): (event: unknown) => Promise<SignResult> {
+  const loadOnce = cacheUntilFailure(deps.loadPrivateKey);
 
   return async (event) => {
     const { slug, lifetimeMs } = parseRequest(event);

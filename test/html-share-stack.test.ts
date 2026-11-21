@@ -8,20 +8,8 @@ import { Template } from "aws-cdk-lib/assertions";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
 import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "../lib/names.js";
 import { MIME_TYPES } from "../scripts/lib/embed.js";
-
-// biome-ignore lint/suspicious/noExplicitAny: CloudFormation テンプレートは任意の JSON
-type Json = any;
-
-function refsIn(value: Json): string[] {
-  if (Array.isArray(value)) return value.flatMap(refsIn);
-  if (value && typeof value === "object") {
-    if (typeof value.Ref === "string") return [value.Ref];
-    return Object.values(value).flatMap(refsIn);
-  }
-  return [];
-}
-
-const asArray = <T>(v: T | T[] | undefined): T[] => (v === undefined ? [] : ([v].flat() as T[]));
+import { TEST_ADMIN } from "./helpers/stack.js";
+import { asArray, type Json, refsIn, roleStatements } from "./helpers/template.js";
 
 function assertNoExternalAccess(
   directives: Map<string, string[]>,
@@ -71,6 +59,14 @@ describe("HtmlShareStack", () => {
     Object.values(resourcesOf("AWS::S3::BucketPolicy")).flatMap(
       (r) => r.Properties.PolicyDocument.Statement,
     );
+  // 管理画面の Distribution は test/admin-console.test.ts で確かめる。ここでは閲覧用だけを見る。
+  const viewerDistributions = (): [string, Json][] => {
+    const found = Object.entries(resourcesOf("AWS::CloudFront::Distribution")).filter(
+      ([, d]) => d.Properties.DistributionConfig.Comment === "html-share viewer",
+    );
+    assert.equal(found.length, 1, "閲覧用の Distribution が 1 つでない");
+    return found;
+  };
   const behaviorsOf = (distribution: Json): Json[] => [
     distribution.Properties.DistributionConfig.DefaultCacheBehavior,
     ...(distribution.Properties.DistributionConfig.CacheBehaviors ?? []),
@@ -78,7 +74,11 @@ describe("HtmlShareStack", () => {
 
   before(() => {
     template = Template.fromStack(
-      new HtmlShareStack(new App(), "TestStack", { publicKeyPem, signingKeyGeneration: 1 }),
+      new HtmlShareStack(new App(), "TestStack", {
+        publicKeyPem,
+        signingKeyGeneration: 1,
+        admin: TEST_ADMIN,
+      }),
     );
   });
 
@@ -133,7 +133,7 @@ describe("HtmlShareStack", () => {
     for (const s of cloudFrontAllows) {
       assert.deepEqual(asArray(s.Action), ["s3:GetObject"]);
     }
-    for (const distribution of Object.values(resourcesOf("AWS::CloudFront::Distribution"))) {
+    for (const [, distribution] of viewerDistributions()) {
       for (const behavior of behaviorsOf(distribution)) {
         // 省略時の既定は GET と HEAD。
         for (const method of asArray<string>(behavior.AllowedMethods)) {
@@ -157,7 +157,7 @@ describe("HtmlShareStack", () => {
     const keyGroups = resourcesOf("AWS::CloudFront::KeyGroup");
     const publicKeys = resourcesOf("AWS::CloudFront::PublicKey");
 
-    for (const distribution of Object.values(resourcesOf("AWS::CloudFront::Distribution"))) {
+    for (const [, distribution] of viewerDistributions()) {
       for (const behavior of behaviorsOf(distribution)) {
         const trusted = refsIn(behavior.TrustedKeyGroups);
         assert.ok(trusted.length > 0, `署名不要のビヘイビア: ${behavior.PathPattern ?? "default"}`);
@@ -203,9 +203,7 @@ describe("HtmlShareStack", () => {
 
   const responseHeadersPoliciesOfBehaviors = (): Json[] => {
     const policies = resourcesOf("AWS::CloudFront::ResponseHeadersPolicy");
-    const behaviors = Object.values(resourcesOf("AWS::CloudFront::Distribution")).flatMap(
-      behaviorsOf,
-    );
+    const behaviors = viewerDistributions().flatMap(([, d]) => behaviorsOf(d));
     // 空だと、呼び出し側のループが何も確かめずに成功する。
     assert.ok(behaviors.length > 0, "ビヘイビアが見つからない");
     return behaviors.map((behavior) => {
@@ -355,20 +353,21 @@ describe("HtmlShareStack", () => {
     }
   });
 
-  const signFunction = (): Json => {
-    const functions = Object.values(resourcesOf("AWS::Lambda::Function")).filter(
-      (f) => f.Properties.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName] !== undefined,
+  const signFunctionOf = (t: Template): [string, Json] => {
+    const functions = Object.entries(t.findResources("AWS::Lambda::Function")).filter(([id]) =>
+      id.startsWith("SignFunction"),
     );
     assert.equal(functions.length, 1, "署名の Lambda が 1 つでない");
-    return functions[0];
+    return functions[0] as [string, Json];
   };
+  const signFunction = (): Json => signFunctionOf(template)[1];
 
   it("署名の Lambda は、このスタックの公開鍵の ID と Distribution のドメインで署名する", () => {
     const variables = signFunction().Properties.Environment.Variables;
     assert.equal(variables[SIGN_FUNCTION_ENV.parameterName], signingKeyParameterName(1));
     const publicKeyIds = Object.keys(resourcesOf("AWS::CloudFront::PublicKey"));
     assert.deepEqual(refsIn(variables[SIGN_FUNCTION_ENV.keyPairId]), publicKeyIds);
-    const [distributionId] = Object.keys(resourcesOf("AWS::CloudFront::Distribution"));
+    const [[distributionId]] = viewerDistributions();
     assert.deepEqual(variables[SIGN_FUNCTION_ENV.distributionDomainName], {
       "Fn::GetAtt": [distributionId, "DomainName"],
     });
@@ -389,20 +388,8 @@ describe("HtmlShareStack", () => {
     // ロールは Fn::GetAtt [論理 ID, "Arn"] で参照される。
     const roleId: string | undefined = signFunction().Properties.Role["Fn::GetAtt"]?.[0];
     assert.ok(roleId, "ロールが見つからない");
-    // ロールの権限になるのは、ロールを指すポリシー（インライン・カスタマー管理・RolePolicy）と、ロール自身の Policies。
     const role = resourcesOf("AWS::IAM::Role")[roleId];
-    const statements = [
-      ...Object.values(resourcesOf("AWS::IAM::Policy")),
-      ...Object.values(resourcesOf("AWS::IAM::ManagedPolicy")),
-    ]
-      .filter((p) => refsIn(p.Properties.Roles).includes(roleId))
-      .concat(
-        Object.values(resourcesOf("AWS::IAM::RolePolicy")).filter((p) =>
-          refsIn(p.Properties.RoleName).includes(roleId),
-        ),
-        asArray<Json>(role.Properties.Policies),
-      )
-      .flatMap((p) => p.PolicyDocument?.Statement ?? p.Properties.PolicyDocument.Statement);
+    const statements = roleStatements(template, roleId);
     assert.ok(statements.length > 0, "鍵を読む許可がない");
     for (const statement of statements) {
       assert.equal(statement.Effect, "Allow");
@@ -423,14 +410,23 @@ describe("HtmlShareStack", () => {
 
   it("署名の Lambda は、IAM で認められた呼び出しだけを受ける", () => {
     // Function URL や、アカウントの外への呼び出しの許可があると、誰でも URL を作れてしまう。
-    assert.deepEqual(Object.keys(resourcesOf("AWS::Lambda::Url")), []);
-    assert.deepEqual(Object.keys(resourcesOf("AWS::Lambda::Permission")), []);
+    const [signId] = signFunctionOf(template);
+    for (const type of ["AWS::Lambda::Url", "AWS::Lambda::Permission"]) {
+      for (const r of Object.values(resourcesOf(type))) {
+        const target = r.Properties.TargetFunctionArn ?? r.Properties.FunctionName;
+        assert.ok(!refsIn(target).includes(signId), `${type} が署名の Lambda を指す`);
+      }
+    }
   });
 
   describe("鍵の世代", () => {
     const templateFor = (signingKeyGeneration: number): Template =>
       Template.fromStack(
-        new HtmlShareStack(new App(), "TestStack", { publicKeyPem, signingKeyGeneration }),
+        new HtmlShareStack(new App(), "TestStack", {
+          publicKeyPem,
+          signingKeyGeneration,
+          admin: TEST_ADMIN,
+        }),
       );
     const publicKeyIds = (t: Template): string[] =>
       Object.keys(t.findResources("AWS::CloudFront::PublicKey"));
@@ -462,9 +458,7 @@ describe("HtmlShareStack", () => {
 
     it("署名の Lambda は、その世代の鍵のパラメータだけを読む", () => {
       const second = templateFor(2);
-      const fn = Object.values(second.findResources("AWS::Lambda::Function")).find(
-        (f) => f.Properties.Environment?.Variables?.[SIGN_FUNCTION_ENV.parameterName],
-      );
+      const [, fn] = signFunctionOf(second);
       assert.equal(
         fn?.Properties.Environment.Variables[SIGN_FUNCTION_ENV.parameterName],
         signingKeyParameterName(2),
@@ -483,9 +477,7 @@ describe("HtmlShareStack", () => {
       const [publicKeyId] = publicKeyIds(second);
       const [keyGroup] = Object.values(second.findResources("AWS::CloudFront::KeyGroup"));
       assert.deepEqual(refsIn(keyGroup?.Properties.KeyGroupConfig.Items), [publicKeyId]);
-      const fn = Object.values(second.findResources("AWS::Lambda::Function")).find(
-        (f) => f.Properties.Environment?.Variables?.[SIGN_FUNCTION_ENV.keyPairId],
-      );
+      const [, fn] = signFunctionOf(second);
       assert.deepEqual(refsIn(fn?.Properties.Environment.Variables[SIGN_FUNCTION_ENV.keyPairId]), [
         publicKeyId,
       ]);

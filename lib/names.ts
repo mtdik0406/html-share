@@ -7,6 +7,7 @@ export const OUTPUT_KEYS = {
   distributionDomainName: "DistributionDomainName",
   publicKeyId: "PublicKeyId",
   signFunctionName: "SignFunctionName",
+  adminLoginUrl: "AdminLoginUrl",
 } as const;
 
 /**
@@ -53,3 +54,17 @@ export const SIGN_FUNCTION_ENV = {
  * CloudFront の公開鍵は中身を変えられないので、世代ごとに別の公開鍵として作る。
  */
 export const SIGNING_KEY_GENERATION = 1;
+
+/** 管理画面の Lambda に渡す環境変数の名前。スタックと Lambda の入口で食い違わないよう、ここで決める。 */
+export const ADMIN_FUNCTION_ENV = {
+  /** Cognito とドメインの設定を置く SSM のパラメータ。スタックの循環を断つため、実行時に読む（ADR 13）。 */
+  configParameterName: "ADMIN_CONFIG_PARAMETER_NAME",
+  ownerEmail: "OWNER_EMAIL",
+  keyPairId: SIGN_FUNCTION_ENV.keyPairId,
+  signingKeyParameterName: SIGN_FUNCTION_ENV.parameterName,
+  bucketName: "BUCKET_NAME",
+  viewerDomainName: SIGN_FUNCTION_ENV.distributionDomainName,
+} as const;
+
+/** 管理画面の設定のパラメータ。スタックが書き、管理画面の Lambda が読む。 */
+export const ADMIN_CONFIG_PARAMETER_NAME = "/html-share/admin-config";

@@ -1,23 +1,21 @@
 import { fileURLToPath } from "node:url";
-import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as iam from "aws-cdk-lib/aws-iam";
-import * as lambda from "aws-cdk-lib/aws-lambda";
-import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
-import * as logs from "aws-cdk-lib/aws-logs";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
+import { AdminConsole, type AdminConsoleProps } from "./admin-console.js";
 import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
-
-// aws-cdk-lib に定数がまだないので、名前で指定する（ADR 9）。
-const NODEJS_26 = new lambda.Runtime("nodejs26.x", lambda.RuntimeFamily.NODEJS);
+import { nodeFunction } from "./node-function.js";
+import { commonHeaders } from "./response-headers.js";
 
 export interface HtmlShareStackProps extends StackProps {
   /** RSA 公開鍵の PEM。CloudFront は BEGIN/END PUBLIC KEY の行を含む形しか受け付けない。 */
   readonly publicKeyPem: string;
   /** 鍵を作り直すたびに 1 増やす。 */
   readonly signingKeyGeneration: number;
+  readonly admin: Pick<AdminConsoleProps, "ownerEmail" | "cognitoDomainPrefix">;
 }
 
 export class HtmlShareStack extends Stack {
@@ -52,85 +50,23 @@ export class HtmlShareStack extends Stack {
     // ゼロにはできない。ページが自分自身を外部の URL へ移動させることは、ヘッダーでは止められない。
     const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, "ViewerHeaders", {
       comment: "html-share viewer: sandbox, no-store, noindex",
-      securityHeadersBehavior: {
-        contentSecurityPolicy: {
-          // sandbox は <meta> では効かないので、ヘッダーで付ける。
-          // allow-same-origin を付けないので、ページは不透明なオリジンになり、Cookie と localStorage に触れない。
-          // 外部からは何も読ませない。読み込むたびに、閲覧者のアクセスが外部のサイトに伝わるため。
-          // 素材は data URI でページに埋め込む前提なので、data: だけを許す。
-          contentSecurityPolicy: [
-            "default-src 'none'",
-            "script-src 'unsafe-inline' data:",
-            "style-src 'unsafe-inline' data:",
-            "img-src data:",
-            "font-src data:",
-            "media-src data:",
-            "connect-src 'none'",
-            "form-action 'none'",
-            "frame-ancestors 'none'",
-            "base-uri 'none'",
-            "sandbox allow-scripts",
-          ].join("; "),
-          override: true,
-        },
-        // 既定の strict-origin-when-cross-origin でもクエリは落ちるが、オリジンも渡す理由がない。
-        // 署名はクエリにあるので、ここが緩むと URL を持たない相手に閲覧権を渡すことになる。
-        referrerPolicy: {
-          referrerPolicy: cloudfront.HeadersReferrerPolicy.NO_REFERRER,
-          override: true,
-        },
-        contentTypeOptions: { override: true },
-        frameOptions: { frameOption: cloudfront.HeadersFrameOption.DENY, override: true },
-        // *.cloudfront.net は自分のドメインではないので、includeSubdomains と preload は付けない。
-        strictTransportSecurity: {
-          accessControlMaxAge: Duration.days(365),
-          includeSubdomains: false,
-          override: true,
-        },
-      },
-      customHeadersBehavior: {
-        customHeaders: [
-          // 期限が切れた URL のページを、ブラウザのキャッシュや戻るボタンで見せないため。
-          // CloudFront 自身のキャッシュは cachePolicy で止めている。これは閲覧者側だけに効く。
-          { header: "Cache-Control", value: "no-store", override: true },
-          { header: "X-Robots-Tag", value: "noindex, nofollow", override: true },
-          // ページが開いたウィンドウ（や、ページを開いたウィンドウ）から、互いを操作させない。
-          { header: "Cross-Origin-Opener-Policy", value: "same-origin", override: true },
-          // sandbox でも、端末の機能を使う許可を閲覧者に求めることはできるので、ヘッダーで止める。
-          {
-            header: "Permissions-Policy",
-            value: [
-              "camera=()",
-              "microphone=()",
-              "geolocation=()",
-              "display-capture=()",
-              "usb=()",
-              "serial=()",
-              "hid=()",
-              "bluetooth=()",
-              "payment=()",
-              "midi=()",
-              "accelerometer=()",
-              "gyroscope=()",
-              "magnetometer=()",
-              "ambient-light-sensor=()",
-              "local-fonts=()",
-              "window-management=()",
-              "screen-wake-lock=()",
-              "idle-detection=()",
-              "xr-spatial-tracking=()",
-              "publickey-credentials-get=()",
-              "publickey-credentials-create=()",
-              // 署名付き URL や端末の情報を、ほかのアプリや識別子の仕組みへ渡させない。
-              "web-share=()",
-              "identity-credentials-get=()",
-              "otp-credentials=()",
-              "browsing-topics=()",
-            ].join(", "),
-            override: true,
-          },
-        ],
-      },
+      // sandbox は <meta> では効かないので、ヘッダーで付ける。
+      // allow-same-origin を付けないので、ページは不透明なオリジンになり、Cookie と localStorage に触れない。
+      // 外部からは何も読ませない。読み込むたびに、閲覧者のアクセスが外部のサイトに伝わるため。
+      // 素材は data URI でページに埋め込む前提なので、data: だけを許す。
+      ...commonHeaders([
+        "default-src 'none'",
+        "script-src 'unsafe-inline' data:",
+        "style-src 'unsafe-inline' data:",
+        "img-src data:",
+        "font-src data:",
+        "media-src data:",
+        "connect-src 'none'",
+        "form-action 'none'",
+        "frame-ancestors 'none'",
+        "base-uri 'none'",
+        "sandbox allow-scripts",
+      ]),
     });
 
     const distribution = new cloudfront.Distribution(this, "ContentDistribution", {
@@ -149,32 +85,15 @@ export class HtmlShareStack extends Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_200,
     });
 
-    const signFunction = new nodejs.NodejsFunction(this, "SignFunction", {
+    const signFunction = nodeFunction(this, "SignFunction", {
       // Stryker disable next-line StringLiteral: 表示の文言
       description: "html-share: SSM の秘密鍵でページの署名付き URL を作る",
       entry: fileURLToPath(new URL("./sign-function/index.ts", import.meta.url)),
-      runtime: NODEJS_26,
-      architecture: lambda.Architecture.ARM_64,
-      memorySize: 256,
-      timeout: Duration.seconds(10),
       environment: {
         [SIGN_FUNCTION_ENV.distributionDomainName]: distribution.distributionDomainName,
         [SIGN_FUNCTION_ENV.keyPairId]: publicKey.publicKeyId,
         [SIGN_FUNCTION_ENV.parameterName]: parameterName,
       },
-      bundling: {
-        format: nodejs.OutputFormat.ESM,
-        // ランタイムに入っている SDK を使わず、手元と同じ版をバンドルに含める（ADR 9）。
-        // Stryker disable next-line ArrayDeclaration: 存在しない名前を外に出しても、バンドルは同じ
-        externalModules: [],
-        // ESM のバンドルの中で、CommonJS の依存が require を使えるようにする。
-        banner:
-          "import { createRequire } from 'module'; const require = createRequire(import.meta.url);",
-      },
-      logGroup: new logs.LogGroup(this, "SignFunctionLogs", {
-        retention: logs.RetentionDays.ONE_MONTH,
-        removalPolicy: RemovalPolicy.DESTROY,
-      }),
     });
     // grantRead は GetParameters や GetParameterHistory も許すので、使う操作だけを書く。
     // aws/ssm で暗号化した値は、kms:Decrypt を足さなくても復号できる（ADR 9）。
@@ -193,6 +112,20 @@ export class HtmlShareStack extends Stack {
       }),
     );
 
+    const adminConsole = new AdminConsole(this, "Admin", {
+      ...props.admin,
+      contentBucket: bucket,
+      viewerDomainName: distribution.distributionDomainName,
+      keyGroup,
+      publicKeyId: publicKey.publicKeyId,
+      signingKeyParameterName: parameterName,
+    });
+
+    new CfnOutput(this, OUTPUT_KEYS.adminLoginUrl, {
+      value: `https://${adminConsole.distribution.distributionDomainName}/auth/login`,
+      // Stryker disable next-line StringLiteral: 表示の文言
+      description: "管理画面のサインインの入口",
+    });
     new CfnOutput(this, OUTPUT_KEYS.bucketName, { value: bucket.bucketName });
     new CfnOutput(this, OUTPUT_KEYS.distributionDomainName, {
       value: distribution.distributionDomainName,

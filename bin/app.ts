@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { App } from "aws-cdk-lib";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
@@ -14,14 +15,31 @@ if (!existsSync(PUBLIC_KEY_PATH)) {
 }
 const publicKeyPem = readFileSync(PUBLIC_KEY_PATH, "utf8");
 
+// 管理画面に入れる人のメールアドレス。リポジトリに書かないよう、deploy のときに渡す（ADR 13）。
+const ownerEmail = process.env.HTML_SHARE_OWNER_EMAIL;
+if (!ownerEmail) {
+  console.error(
+    "管理画面に入る人のメールアドレスを、環境変数 HTML_SHARE_OWNER_EMAIL で渡してください",
+  );
+  process.exit(1);
+}
+const account = process.env.CDK_DEFAULT_ACCOUNT;
+if (!account) {
+  console.error("AWS のアカウントが分かりません。AWS_PROFILE を指定してください");
+  process.exit(1);
+}
+// prefix domain はリージョンの中で一意にする。アカウント ID をそのまま出さないよう、ハッシュから作る。
+const cognitoDomainPrefix = `html-share-${createHash("sha256").update(account).digest("hex").slice(0, 12)}`;
+
 const app = new App();
 
 new HtmlShareStack(app, STACK_NAME, {
   // リポジトリにアカウント ID を書かないよう、実行時のプロファイル（AWS_PROFILE）から取る。
   env: {
-    account: process.env.CDK_DEFAULT_ACCOUNT,
+    account,
     region: process.env.CDK_DEFAULT_REGION,
   },
   publicKeyPem,
   signingKeyGeneration: SIGNING_KEY_GENERATION,
+  admin: { ownerEmail, cognitoDomainPrefix },
 });
