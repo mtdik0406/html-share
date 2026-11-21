@@ -1,5 +1,5 @@
 const MINUTE_MS = 60_000;
-const DAY_MS = 86_400_000;
+export const DAY_MS = 86_400_000;
 
 export const DEFAULT_DAYS = 7;
 export const MAX_DAYS = 30;

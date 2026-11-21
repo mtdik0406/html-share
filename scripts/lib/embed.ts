@@ -47,6 +47,8 @@ const DEFAULT_LIMITS: EmbedLimits = {
 
 export interface EmbedResult {
   html: Buffer;
+  /** 埋め込んだ手元のファイルの実体のパス。意図しないファイルを公開していないか、利用者が確かめるため。 */
+  assets: string[];
   /** 書き換えずに残した外部の URL。CSP で読み込めないので、ページが崩れる手がかりになる。 */
   warnings: string[];
 }
@@ -84,6 +86,7 @@ interface Context {
   roots: string[];
   limits: EmbedLimits;
   warnings: string[];
+  assets: Set<string>;
   /** 実体のパス → data URI。同じ素材を何度参照されても、読み込みと変換は 1 回で済ませる。 */
   cache: Map<string, string>;
 }
@@ -117,7 +120,13 @@ function embedPageUnlabeled(
       throw new Error(`roots のディレクトリが見つかりません: ${root}`);
     }
   });
-  const ctx: Context = { roots: realRoots, limits, warnings: [], cache: new Map() };
+  const ctx: Context = {
+    roots: realRoots,
+    limits,
+    warnings: [],
+    assets: new Set(),
+    cache: new Map(),
+  };
 
   const { file: source } = resolveInsideRoots(sourcePath, ctx);
   const html = readFileSync(source, "utf8");
@@ -133,7 +142,7 @@ function embedPageUnlabeled(
       `埋め込んだ後のページが上限 ${limits.maxPageBytes} バイトを超えます（${output.length} バイト）`,
     );
   }
-  return { html: output, warnings: ctx.warnings };
+  return { html: output, assets: [...ctx.assets], warnings: ctx.warnings };
 }
 
 function walk(node: ParentNode, visit: (element: Element) => void): void {
@@ -390,6 +399,7 @@ function rewriteCss(
 
 function dataUriFor(candidate: string, ctx: Context, stack: readonly string[]): string {
   const { file, size } = resolveInsideRoots(candidate, ctx);
+  ctx.assets.add(file);
   // 循環の判定はキャッシュより先に行う。キャッシュに入るのは、最後まで埋め込めた CSS だけ。
   if (stack.includes(file)) throw new Error(`CSS の @import が循環しています: ${candidate}`);
   const cached = ctx.cache.get(file);

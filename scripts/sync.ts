@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
@@ -6,13 +5,9 @@ import { parseArgs } from "node:util";
 import { S3Client } from "@aws-sdk/client-s3";
 import { runCli } from "./lib/cli.js";
 import { parseConfig } from "./lib/config.js";
-import { embedPage } from "./lib/embed.js";
-import { acquireLock } from "./lib/lock.js";
-import { PAGES_PREFIX, pageKey } from "./lib/page.js";
-import { DEFAULT_CONFIG_PATH, LOCK_DIR } from "./lib/paths.js";
-import { applyPlan, listRemote } from "./lib/s3-sync.js";
+import { DEFAULT_CONFIG_PATH, LOCK_DIR, RETIRED_PATH } from "./lib/paths.js";
 import { readStackOutputs } from "./lib/stack-outputs.js";
-import { assertSafeToApply, type LocalObject, planSync } from "./lib/sync-plan.js";
+import { runSync } from "./lib/sync-run.js";
 
 await runCli(async () => {
   const { positionals, values } = parseArgs({
@@ -36,42 +31,22 @@ await runCli(async () => {
   }
   const config = parseConfig(readFileSync(configPath, "utf8"), dirname(configPath), homedir());
 
-  // 一覧を読んでから消すまでの間に、別の同期が割り込まないようにする。
-  const release = acquireLock(LOCK_DIR);
-  try {
-    // AWS に問い合わせる前に、手元の入力の誤りを見つける。
-    const bodies = new Map<string, Buffer>();
-    const local: LocalObject[] = [];
-    for (const page of config.pages) {
-      const { html, warnings } = embedPage(page.source, config.roots);
-      for (const warning of warnings) console.warn(`warning: ${page.slug}: ${warning}`);
-      const key = pageKey(page.slug);
-      bodies.set(key, html);
-      local.push({ key, md5: createHash("md5").update(html).digest("hex") });
-    }
-
-    const { bucketName } = await readStackOutputs();
-    const s3 = new S3Client({});
-    const remote = await listRemote(s3, bucketName, PAGES_PREFIX);
-    const plan = planSync(local, remote);
-
-    for (const key of plan.add) console.log(`add       ${key}`);
-    for (const key of plan.update) console.log(`update    ${key}`);
-    for (const key of plan.remove) console.log(`delete    ${key}`);
-    console.log(`unchanged ${plan.unchanged.length} ページ`);
-
-    assertSafeToApply(plan, remote.length, { allowMassDelete: values["allow-mass-delete"] });
-    if (values["dry-run"]) {
-      console.log("--dry-run なので、S3 は変えていません");
-      return;
-    }
-
-    await applyPlan(s3, bucketName, plan, bodies);
-
-    console.log(
-      `完了: add ${plan.add.length}, update ${plan.update.length}, delete ${plan.remove.length}`,
-    );
-  } finally {
-    release();
-  }
+  const dryRun = values["dry-run"];
+  const plan = await runSync(
+    config,
+    { dryRun, allowMassDelete: values["allow-mass-delete"] },
+    {
+      s3: new S3Client({}),
+      bucketName: async () => (await readStackOutputs()).bucketName,
+      lockDir: LOCK_DIR,
+      retiredPath: RETIRED_PATH,
+      now: () => new Date(),
+      log: (line) => console.log(line),
+    },
+  );
+  console.log(
+    dryRun
+      ? "--dry-run なので、S3 は変えていません"
+      : `完了: add ${plan.add.length}, update ${plan.update.length}, delete ${plan.remove.length}`,
+  );
 });

@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
@@ -151,6 +151,19 @@ describe("embedPage: 埋め込み", () => {
       assert.equal(decodeDataUri(attr(html, tag, name) ?? "").body, "X");
     });
   }
+
+  it("埋め込んだ手元のファイルの実体のパスを、重複なく返す", () => {
+    write("a.png", "A");
+    write("a.css", "p { background: url(a.png) }");
+    const result = embedPage(
+      page('<img src="a.png"><img src="a.png">', '<link rel="stylesheet" href="a.css">'),
+      [root],
+    );
+    assert.deepEqual(
+      [...result.assets].sort(),
+      [join(realpathSync(root), "a.css"), join(realpathSync(root), "a.png")].sort(),
+    );
+  });
 
   it("<template> の中の素材も埋め込む", () => {
     write("a.png", "T");

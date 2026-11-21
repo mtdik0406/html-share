@@ -21,3 +21,9 @@ export function pageKey(slug: string): string {
 export function pageUrl(distributionDomainName: string, slug: string): string {
   return `https://${distributionDomainName}/${pageKey(slug)}`;
 }
+
+/** pageKey の逆。同期が扱う形でないキーは undefined。 */
+export function slugOfKey(key: string): string | undefined {
+  const slug = key.slice(PAGES_PREFIX.length, -"/index.html".length);
+  return key === pageKey(slug) && SLUG_PATTERN.test(slug) ? slug : undefined;
+}

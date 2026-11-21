@@ -14,4 +14,7 @@ export const PUBLIC_KEY_PATH = join(KEYS_DIR, PUBLIC_KEY_FILE);
 
 /** 公開するページの一覧。手元のパスを含むので、.gitignore で除外している。 */
 export const DEFAULT_CONFIG_PATH = join(REPO_ROOT, "html-share.config.json");
-export const LOCK_DIR = join(REPO_ROOT, ".html-share", "sync.lock");
+const STATE_DIR = join(REPO_ROOT, ".html-share");
+export const LOCK_DIR = join(STATE_DIR, "sync.lock");
+/** 取り下げた slug と時刻。消すと、取り下げた slug の再利用を止められなくなる。 */
+export const RETIRED_PATH = join(STATE_DIR, "retired.json");
