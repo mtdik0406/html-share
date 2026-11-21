@@ -27,7 +27,7 @@ pnpm run keys:store                 # 秘密鍵を SSM の SecureString に置�
 pnpm run sign <slug> --minutes 1    # Lambda で署名できることを確かめる
 ```
 
-署名は、SSM の秘密鍵を読む Lambda が行う（[ADR 9](docs/adr/0009-sign-in-lambda-with-ssm-key.md)）。`keys:store` は、秘密鍵が `.keys/public.pem` と対であることを確かめてから置き、すでにある値は上書きしない。
+署名は、SSM の秘密鍵を読む Lambda が行う（[ADR 9](docs/adr/0009-sign-in-lambda-with-ssm-key.md)）。`keys:store` は、秘密鍵が `.keys/public.pem` と対であることを確かめてから、今の鍵の世代のパラメータに置く。すでにある値は上書きしない。
 
 `sign` で URL を作れたら、`.keys/private.pem` を消す。手元から秘密鍵が漏れる経路をなくすため。`.keys/public.pem` は `cdk deploy` が読むので残す。
 

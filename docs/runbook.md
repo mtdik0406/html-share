@@ -12,26 +12,28 @@
 
 ## 秘密鍵が漏れた、またはすべての URL を止めたい
 
-鍵を作り直すと、それまでに配った URL はすべて通らなくなる（[ADR 10](adr/0010-signing-key-generation.md)）。
+鍵を作り直すと、それまでに配った URL はすべて通らなくなる（[ADR 10](adr/0010-signing-key-generation.md)・[ADR 11](adr/0011-signing-key-parameter-per-generation.md)）。
 
-1. `.keys/` を、リポジトリの外へ退避する（例：`mv .keys ~/html-share-keys-old`）。消さない。手順 6 が失敗したときに戻すため
+1. `.keys/` を、世代を名前に入れてリポジトリの外へ退避する（例：今が 1 世代目なら `mv .keys ~/html-share-keys-gen1`）。手順 6 が失敗したとき、古い公開鍵で deploy し直すため
 2. `pnpm run keygen`
 3. `lib/names.ts` の `SIGNING_KEY_GENERATION` を 1 増やしてコミットする
-4. `pnpm run keys:store --overwrite`
-5. `pnpm exec cdk diff` で、公開鍵が 1 つ足されて 1 つ消えることと、キーグループと Lambda の環境変数（Key-Pair-Id）が変わることを確かめる
+4. `pnpm run keys:store`（新しい世代の名前に置く。古い世代の鍵には触らない）
+5. `pnpm exec cdk diff` で、公開鍵が 1 つ足されて 1 つ消えることと、キーグループ・Lambda の環境変数（Key-Pair-Id とパラメータの名前）・ロールが読めるパラメータが変わることを確かめる
 6. `pnpm exec cdk deploy`
-7. `pnpm run sign <slug> --minutes 1` で作った URL を開き、表示されることを確かめる
+7. `pnpm run sign <slug> --minutes 5` で作った URL を開き、表示されることを確かめる。403 なら、配信への反映を数分待ってから作り直す
 8. 配り直すページの URL を `pnpm run sign` で作り直す
 9. `.keys/private.pem` と、手順 1 で退避した鍵を消す
+10. `pnpm run keys:delete --dry-run` で古い世代の鍵だけが出ることを確かめてから、`pnpm run keys:delete`
 
-漏れた秘密鍵は、手順 6 が終わるまで有効なまま。手順 4 から 6 は続けて行う。手順 4 と 6 の間に作った URL は通らないことがある。
+漏れた秘密鍵は、手順 6 が終わるまで有効なまま。
 
-手順 6 が失敗したら、スタックは古い公開鍵のまま戻る。SSM だけが新しい鍵になっているので、古い鍵に戻す。
+手順 6 が失敗して戻ったら、スタックは古い世代のまま動き、`sign` も古い鍵で署名する。原因を直して、手順 6 からやり直す。作り直しをやめるときは、次のようにする。
 
-1. 新しい `.keys/` を退避し、手順 1 で退避した古い `.keys/` を戻す
-2. `pnpm run keys:store --overwrite`
-3. `SIGNING_KEY_GENERATION` を元に戻す
-4. 失敗の原因を直してから、手順 1 からやり直す
+1. 手順 3 のコミットを戻す
+2. 新しい `.keys/` を消し、手順 1 で退避した `.keys/` を戻す
+3. 新しい世代の鍵は `keys:delete` が消さないので、`pnpm run keys:delete --all --dry-run` で名前を確かめ、AWS のコンソールでその 1 つだけを消す
+
+戻す処理も失敗した（スタックが `UPDATE_ROLLBACK_FAILED` になった）ときは、CloudFormation のコンソールで原因を見てから、ロールバックを続ける。どちらの世代で署名しているかは、スタックの出力 `PublicKeyId` で分かる。
 
 ## AWS の認証情報が漏れた
 
@@ -51,7 +53,7 @@
 
 ```sh
 pnpm exec cdk destroy   # バケットの中身ごと消える。配った URL はすべて通らなくなる
-aws ssm delete-parameter --name /html-share/signing-private-key
+pnpm run keys:delete --all   # SSM の秘密鍵をすべての世代で消す
 ```
 
 秘密鍵のパラメータは CloudFormation の外で作るので、`cdk destroy` では消えない。残したまま同じ公開鍵で deploy し直すと、その鍵がまた使われる。
