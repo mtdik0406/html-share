@@ -23,6 +23,40 @@ function refsIn(value: Json): string[] {
 
 const asArray = <T>(v: T | T[] | undefined): T[] => (v === undefined ? [] : ([v].flat() as T[]));
 
+function assertNoExternalAccess(
+  directives: Map<string, string[]>,
+  allowedDirectives: ReadonlySet<string>,
+  allowedSources: ReadonlySet<string>,
+): void {
+  // 個別に書いていない種類の読み込みは default-src に従う。
+  assert.deepEqual(directives.get("default-src"), ["'none'"]);
+  for (const name of directives.keys()) {
+    assert.ok(allowedDirectives.has(name), `想定していないディレクティブ: ${name}`);
+  }
+  for (const [name, sources] of directives) {
+    // script-src-elem・style-src-attr のように -src の後ろに続く名前もある。
+    if (!name.includes("-src")) continue;
+    for (const source of sources) {
+      assert.ok(allowedSources.has(source), `${name} が ${source} を許している`);
+    }
+  }
+  // form-action・frame-ancestors・base-uri は default-src に従わない。
+  // connect-src は従うが、外への送信の要なので、default-src が緩んでも残るよう個別に固定する。
+  for (const name of ["connect-src", "form-action", "frame-ancestors", "base-uri"]) {
+    assert.deepEqual(directives.get(name), ["'none'"], `${name} が 'none' でない`);
+  }
+}
+
+function directiveFor(mime: string): string | undefined {
+  if (mime === "text/javascript") return "script-src";
+  if (mime === "text/css") return "style-src";
+  if (mime === "text/vtt") return "media-src";
+  if (mime.startsWith("image/")) return "img-src";
+  if (mime.startsWith("font/")) return "font-src";
+  if (mime.startsWith("audio/") || mime.startsWith("video/")) return "media-src";
+  return undefined;
+}
+
 describe("HtmlShareStack", () => {
   // .keys/ の本物の鍵に依存しないよう、使い捨ての鍵を作る。
   const { publicKey: publicKeyPem } = generateKeyPairSync("rsa", {
@@ -213,40 +247,15 @@ describe("HtmlShareStack", () => {
       "sandbox",
     ]);
     for (const config of responseHeadersPoliciesOfBehaviors()) {
-      const directives = parseCsp(
-        config.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy,
+      assertNoExternalAccess(
+        parseCsp(config.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy),
+        allowedDirectives,
+        allowedSources,
       );
-
-      // 個別に書いていない種類の読み込みは default-src に従う。
-      assert.deepEqual(directives.get("default-src"), ["'none'"]);
-      for (const name of directives.keys()) {
-        assert.ok(allowedDirectives.has(name), `想定していないディレクティブ: ${name}`);
-      }
-      for (const [name, sources] of directives) {
-        // script-src-elem・style-src-attr のように -src の後ろに続く名前もある。
-        if (!name.includes("-src")) continue;
-        for (const source of sources) {
-          assert.ok(allowedSources.has(source), `${name} が ${source} を許している`);
-        }
-      }
-      // form-action・frame-ancestors・base-uri は default-src に従わない。
-      // connect-src は従うが、外への送信の要なので、default-src が緩んでも残るよう個別に固定する。
-      for (const name of ["connect-src", "form-action", "frame-ancestors", "base-uri"]) {
-        assert.deepEqual(directives.get(name), ["'none'"], `${name} が 'none' でない`);
-      }
     }
   });
 
   it("埋め込める素材の種類は、どれも CSP で data: として読み込める", () => {
-    const directiveFor = (mime: string): string | undefined => {
-      if (mime === "text/javascript") return "script-src";
-      if (mime === "text/css") return "style-src";
-      if (mime === "text/vtt") return "media-src";
-      if (mime.startsWith("image/")) return "img-src";
-      if (mime.startsWith("font/")) return "font-src";
-      if (mime.startsWith("audio/") || mime.startsWith("video/")) return "media-src";
-      return undefined;
-    };
     for (const config of responseHeadersPoliciesOfBehaviors()) {
       const directives = parseCsp(
         config.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy,

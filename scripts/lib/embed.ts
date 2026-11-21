@@ -329,26 +329,29 @@ function rewriteSrcset(value: string, baseDir: string, ctx: Context): string {
  */
 export function parseSrcset(value: string): { url: string; descriptors: string }[] {
   const candidates: { url: string; descriptors: string }[] = [];
-  const isSpace = (c: string | undefined) => c !== undefined && /\s/.test(c);
-  let i = 0;
+  let i = skipWhile(value, 0, isSeparator);
   while (i < value.length) {
-    while (i < value.length && (isSpace(value[i]) || value[i] === ",")) i++;
-    if (i >= value.length) break;
-
-    const urlStart = i;
-    while (i < value.length && !isSpace(value[i])) i++;
-    let url = value.slice(urlStart, i);
-    let descriptors = "";
+    const urlEnd = skipWhile(value, i, (c) => !isSpace(c));
+    const url = value.slice(i, urlEnd);
     if (url.endsWith(",")) {
-      url = url.replace(/,+$/, "");
-    } else {
-      const descriptorStart = i;
-      while (i < value.length && value[i] !== ",") i++;
-      descriptors = value.slice(descriptorStart, i).trim();
+      candidates.push({ url: url.replace(/,+$/, ""), descriptors: "" });
+      i = skipWhile(value, urlEnd, isSeparator);
+      continue;
     }
-    candidates.push({ url, descriptors });
+    const descriptorsEnd = skipWhile(value, urlEnd, (c) => c !== ",");
+    candidates.push({ url, descriptors: value.slice(urlEnd, descriptorsEnd).trim() });
+    i = skipWhile(value, descriptorsEnd, isSeparator);
   }
   return candidates;
+}
+
+const isSpace = (c: string) => /\s/.test(c);
+const isSeparator = (c: string) => isSpace(c) || c === ",";
+
+function skipWhile(value: string, from: number, test: (c: string) => boolean): number {
+  let i = from;
+  while (i < value.length && test(value.charAt(i))) i++;
+  return i;
 }
 
 /**
