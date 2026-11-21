@@ -87,6 +87,7 @@ export async function listSigningKeys(ssm: SsmSender): Promise<string[]> {
         NextToken: token,
       }),
     )) as DescribeParametersCommandOutput;
+    // Stryker disable next-line ArrayDeclaration: 名前のない要素は飛ばすので、既定の配列に何が入っても同じ
     for (const { Name } of res.Parameters ?? []) {
       if (Name !== undefined && generationOfParameterName(Name) !== undefined) names.push(Name);
     }

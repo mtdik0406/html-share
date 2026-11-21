@@ -17,6 +17,7 @@ const SIGNING_KEY_PARAMETER_BASE = "/html-share/signing-private-key";
 
 function assertKeyGeneration(generation: number): void {
   if (!Number.isInteger(generation) || generation < 1) {
+    // Stryker disable next-line StringLiteral: 表示の文言
     throw new Error(`鍵の世代は 1 以上の整数にしてください: ${generation}`);
   }
 }

@@ -144,11 +144,12 @@ describe("listSigningKeys", () => {
         Parameters: [{ Name: gen(1) }, { Name: "/html-share/signing-private-key-old" }],
         NextToken: "t",
       },
-      { Parameters: [{ Name: gen(2) }, {}] },
+      { Parameters: [{ Name: gen(2) }, {}], NextToken: "u" },
+      {},
     ];
     const { ssm, sent } = fakeSsm(() => pages.shift());
     assert.deepEqual(await listSigningKeys(ssm), [gen(1), gen(2)]);
-    assert.equal(sent.length, 2);
+    assert.equal(sent.length, 3);
     const [first, second] = sent;
     assert.ok(first instanceof DescribeParametersCommand);
     assert.deepEqual(first.input.ParameterFilters, [
@@ -161,7 +162,8 @@ describe("listSigningKeys", () => {
 
 describe("deleteSigningKeys", () => {
   it("1 回に 10 個ずつ消す", async () => {
-    const { ssm, sent } = fakeSsm(() => ({ InvalidParameters: [] }));
+    // 消せた回の応答には、InvalidParameters がないことがある。
+    const { ssm, sent } = fakeSsm(() => ({}));
     const names = Array.from({ length: 11 }, (_, i) => gen(i + 1));
     await deleteSigningKeys(ssm, names);
     assert.deepEqual(

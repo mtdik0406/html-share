@@ -35,6 +35,8 @@ describe("generationOfParameterName", () => {
       "/html-share/signing-private-key-gen02",
       "/html-share/signing-private-key-genx",
       "/html-share/signing-private-key/gen2",
+      "/html-share/signing-private-key-old-gen2",
+      "/html-share/signing-private-key-gen2x",
       "x/html-share/signing-private-key",
     ]) {
       assert.equal(generationOfParameterName(name), undefined, name);
