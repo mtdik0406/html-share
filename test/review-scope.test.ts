@@ -16,6 +16,8 @@ describe("reviewScope", () => {
 describe("guardedFiles", () => {
   for (const file of [
     "biome.json",
+    "knip.jsonc",
+    "stryker.config.json",
     "package.json",
     ".github/workflows/check.yml",
     ".claude/settings.json",

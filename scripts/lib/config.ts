@@ -1,7 +1,7 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { assertSlug } from "./page.js";
 
-export interface PageEntry {
+interface PageEntry {
   slug: string;
   /** 絶対パス */
   source: string;

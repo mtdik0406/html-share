@@ -7,6 +7,8 @@
       "Bash(pnpm exec cdk destroy *)",
       "Bash(pnpm run sync *)",
       "Edit(/biome.json)",
+      "Edit(/knip.jsonc)",
+      "Edit(/stryker.config.json)",
       "Edit(/tsconfig.json)",
       "Edit(/package.json)",
       "Edit(/pnpm-workspace.yaml)",

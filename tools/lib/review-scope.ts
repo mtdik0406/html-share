@@ -7,6 +7,8 @@ const WHOLE_CODEBASE = ["scripts/", "lib/", "bin/", "tools/", "test/"];
  */
 export const GUARDED_PATHS: readonly string[] = [
   "biome.json",
+  "knip.jsonc",
+  "stryker.config.json",
   "tsconfig.json",
   "package.json",
   "pnpm-workspace.yaml",

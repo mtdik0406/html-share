@@ -18,3 +18,7 @@ cdk.context.json
 # 公開するページの一覧（手元のパスを含む）と、同期のロック
 html-share.config.json
 .html-share/
+
+# 変異テストの作業場所
+.stryker-tmp/
+reports/

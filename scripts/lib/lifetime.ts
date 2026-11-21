@@ -4,7 +4,7 @@ export const DAY_MS = 86_400_000;
 export const DEFAULT_DAYS = 7;
 export const MAX_DAYS = 30;
 /** 手元とサーバーの時計のずれや、URL を開くまでの操作の時間を見込んだ最小単位。 */
-export const MIN_LIFETIME_MS = MINUTE_MS;
+const MIN_LIFETIME_MS = MINUTE_MS;
 
 export interface LifetimeOptions {
   days?: string | undefined;

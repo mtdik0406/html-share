@@ -89,7 +89,7 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 
 ## 開発
 
-作業の約束は [AGENTS.md](AGENTS.md)、設計の判断とその理由は [docs/adr/](docs/adr/) にある。`pnpm run check` が、コミットの前（`.githooks/`）・CI・Claude Code の作業の終わり（`.claude/`）で実行される。どれも作業ツリーのコードを実行するので、信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない。
+作業の約束は [AGENTS.md](AGENTS.md)、設計の判断とその理由は [docs/adr/](docs/adr/) にある。`pnpm run check` が、コミットの前（`.githooks/`）・CI・Claude Code の作業の終わり（`.claude/`）で実行される。変異テスト（`pnpm run test:mutation`）は CI で実行し、スコアが `stryker.config.json` の `break` を下回ると落ちる。どれも作業ツリーのコードを実行するので、信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない。
 
 ## 依存の更新
 

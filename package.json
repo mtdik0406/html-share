@@ -17,17 +17,24 @@
     "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "lint:repo": "tsx tools/check-repo.ts",
+    "lint:unused": "knip",
+    "lint:duplicate": "jscpd --exit-code --fail-on-empty --reporters console bin lib scripts tools test",
     "review:scope": "tsx tools/review-scope.ts",
     "format": "biome check --write .",
     "test": "tsx --test --experimental-test-coverage --test-coverage-include=\"scripts/**\" --test-coverage-include=\"lib/**\" --test-coverage-include=\"tools/**\" --test-coverage-lines=95 --test-coverage-branches=90 --test-coverage-functions=95 \"test/**/*.test.ts\"",
-    "check": "pnpm run typecheck && pnpm run lint && pnpm run lint:repo && pnpm run test"
+    "test:mutation": "stryker run",
+    "check": "pnpm run typecheck && pnpm run lint && pnpm run lint:repo && pnpm run lint:unused && pnpm run lint:duplicate && pnpm run test"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
+    "@stryker-mutator/core": "^10.1.1",
+    "@stryker-mutator/tap-runner": "^10.1.1",
     "@types/node": "^26.6.6",
     "aws-cdk": "^2.1148.0",
     "aws-cdk-lib": "^2.275.0",
     "constructs": "^10.8.1",
+    "jscpd": "^5.4.2",
+    "knip": "^6.44.1",
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },
