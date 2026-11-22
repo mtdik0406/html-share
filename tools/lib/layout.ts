@@ -2,7 +2,7 @@
  * ディレクトリごとに、相対パスで読んでよいディレクトリ（ADR 14）。表にないディレクトリ（test/ など）は見ない。
  * ディレクトリを足したら、検査の設定も手で合わせる（ADR 17）：tsconfig.json の include（または自分の tsconfig.json と
  * package.json の typecheck）・knip.jsonc の project・package.json の網羅率（test）と重複（lint:duplicate）の対象・
- * stryker.config.json の mutate。
+ * stryker.config.json の mutate。入口だけのディレクトリ（bin）は網羅率と mutate に、検査の道具（tools）は mutate に入れない（ADR 18）。
  */
 export const ALLOWED_IMPORTS: Readonly<Record<string, readonly string[]>> = {
   core: ["core"],

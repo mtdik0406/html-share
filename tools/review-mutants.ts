@@ -13,7 +13,7 @@ if (!existsSync(REPORT)) {
   process.exit(1);
 }
 
-// ファイルを指定したら、その全体を見る（変える前に、今のテストが足りているかを確かめるとき）。
+// ファイルを指定したら、その全体を見る（変えた行に限らず、ファイルの見逃しを一覧にしたいとき）。
 // 指定がなければ、基点（--base、既定は main）から変えた行と新しいファイルを見る。
 const { base, positionals: targets } = parseScopeArgs();
 let lines: Map<string, Set<number>>;
