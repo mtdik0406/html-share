@@ -139,18 +139,20 @@ export function findForbiddenImports(path: string, source: string): Finding[] {
   // Stryker disable next-line StringLiteral: 解析に使わない仮のファイル名
   const file = ts.createSourceFile("source.ts", source, ts.ScriptTarget.Latest, true);
   const findings: Finding[] = [];
+  const check = (spec: string, pos: number): void => {
+    if (!/^\.\.?(?:\/|$)/.test(spec)) return;
+    if (allowed.includes(topDir(posix.join(posix.dirname(path), spec)))) return;
+    findings.push({
+      line: file.getLineAndCharacterOfPosition(pos).line + 1,
+      // Stryker disable next-line StringLiteral: 表示の文言
+      reason: `${topDir(path)}/ から読めない場所を読んでいる: ${spec}`,
+    });
+  };
+  // /// <reference path="..." /> は、構文木のノードにならない。
+  for (const ref of file.referencedFiles) check(ref.fileName, ref.pos);
   const visit = (node: ts.Node): void => {
     const spec = moduleSpecifier(node);
-    if (spec !== undefined && /^\.\.?(?:\/|$)/.test(spec.text)) {
-      const target = topDir(posix.join(posix.dirname(path), spec.text));
-      if (!allowed.includes(target)) {
-        findings.push({
-          line: file.getLineAndCharacterOfPosition(spec.getStart()).line + 1,
-          // Stryker disable next-line StringLiteral: 表示の文言
-          reason: `${topDir(path)}/ から読めない場所を読んでいる: ${spec.text}`,
-        });
-      }
-    }
+    if (spec !== undefined) check(spec.text, spec.getStart());
     ts.forEachChild(node, visit);
   };
   visit(file);
@@ -164,10 +166,22 @@ function topDir(path: string): string {
 function moduleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
   if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
     const spec = node.moduleSpecifier;
-    // Stryker disable next-line ConditionalExpression: 構文の上で、from の後ろは文字列しか書けない。from のない export では undefined を返すことに変わりない
+    // Stryker disable next-line ConditionalExpression: 式全体を true にしても、from の後ろは構文の上で文字列か undefined なので、返す値は同じ
     return spec !== undefined && ts.isStringLiteral(spec) ? spec : undefined;
   }
-  // 型の位置の import("...")。
+  // import X = require("...")。import X = A.B は、ほかのファイルを読まない。
+  if (ts.isImportEqualsDeclaration(node)) {
+    const ref = node.moduleReference;
+    // Stryker disable next-line ConditionalExpression: 式全体を true にしても、A.B には expression がなく、require の引数は構文の上で文字列なので、返す値は同じ
+    return ts.isExternalModuleReference(ref) && ts.isStringLiteral(ref.expression)
+      ? ref.expression
+      : undefined;
+  }
+  return importCallSpecifier(node);
+}
+
+/** 型の位置の import("...") と、式の import("...")。 */
+function importCallSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
   if (ts.isImportTypeNode(node)) {
     const arg = node.argument;
     // Stryker disable next-line ConditionalExpression,LogicalOperator: 文字列でない引数は tsc が落とし、.text も ./ や ../ で始まらない

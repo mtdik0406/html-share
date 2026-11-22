@@ -18,7 +18,7 @@ describe("paths", () => {
     assert.ok(existsSync(join(REPO_ROOT, ".gitignore")));
   });
 
-  // .gitignore で除外している場所に置く。ずれると、鍵や手元の状態がコミットされうる。
+  // 場所を固定する。.gitignore がこれらを除外していることは、ここでは確かめない。
   for (const [name, path, expected] of [
     ["KEYS_DIR", KEYS_DIR, ".keys"],
     ["PUBLIC_KEY_PATH", PUBLIC_KEY_PATH, ".keys/public.pem"],
