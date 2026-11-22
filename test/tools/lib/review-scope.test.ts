@@ -39,6 +39,7 @@ describe("guardedFiles", () => {
     "stryker.config.json",
     "package.json",
     "tsconfig.json",
+    "admin-ui/tsconfig.json",
     "pnpm-workspace.yaml",
     ".nvmrc",
     ".githooks/pre-commit",

@@ -11,6 +11,7 @@ const GUARDED_PATHS: readonly string[] = [
   "knip.jsonc",
   "stryker.config.json",
   "tsconfig.json",
+  "admin-ui/tsconfig.json",
   "package.json",
   "pnpm-workspace.yaml",
   ".nvmrc",
