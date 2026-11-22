@@ -135,10 +135,9 @@ export function mutationPlan(changed: readonly string[], sources: readonly strin
   return { all: false, files };
 }
 
-/** レビューのエージェントの数。差分が小さいほど、観点を 1 体にまとめてもレビューの質が落ちにくい。 */
-export function reviewerCount(changedCodeLines: number): 1 | 2 | 4 {
-  if (changedCodeLines < 300) return 1;
-  return changedCodeLines < 1000 ? 2 : 4;
+/** レビューのエージェントの数。差分が小さいほど、観点を 1 体にまとめてもレビューの質が落ちにくい。3 体以上は同じ指摘を重ねるだけなので、2 体まで（ADR 18）。 */
+export function reviewerCount(changedCodeLines: number): 1 | 2 {
+  return changedCodeLines < 300 ? 1 : 2;
 }
 
 /** `git diff --numstat` の出力と、新しいファイルの中身から、足した行と消した行の数を出す。 */

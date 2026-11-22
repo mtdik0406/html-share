@@ -246,8 +246,9 @@ describe("reviewerCount", () => {
     assert.equal(reviewerCount(999), 2);
   });
 
-  it("1000 行以上なら 4 体", () => {
-    assert.equal(reviewerCount(1000), 4);
+  it("1000 行以上でも 2 体（同じ指摘が重なるだけなので、増やさない）", () => {
+    assert.equal(reviewerCount(1000), 2);
+    assert.equal(reviewerCount(100_000), 2);
   });
 });
 
