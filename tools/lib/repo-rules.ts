@@ -1,5 +1,6 @@
 import { posix } from "node:path";
 import ts from "typescript";
+import { ALLOWED_IMPORTS } from "./layout.js";
 
 export interface Finding {
   line: number;
@@ -121,17 +122,6 @@ export function findPrivateKeyAccess(path: string, text: string): Finding[] {
       : [],
   );
 }
-
-/** ディレクトリごとに、相対パスで読んでよいディレクトリ（ADR 14）。表にないディレクトリ（test/ など）は見ない。 */
-const ALLOWED_IMPORTS: Readonly<Record<string, readonly string[]>> = {
-  core: ["core"],
-  cli: ["core", "cli"],
-  functions: ["core", "functions"],
-  infra: ["core", "infra"],
-  "admin-ui": ["core", "admin-ui"],
-  bin: ["core", "infra"],
-  tools: ["tools"],
-};
 
 export function findForbiddenImports(path: string, source: string): Finding[] {
   const allowed = ALLOWED_IMPORTS[topDir(path)];

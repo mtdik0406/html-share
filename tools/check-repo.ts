@@ -1,5 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import ts from "typescript";
+import { findLayoutGaps } from "./lib/layout.js";
 import {
   adrChangedOutsideStatus,
   type Finding,
@@ -68,6 +70,39 @@ for (const path of files()) {
       problems.push(`${path} 採用した ADR を書き換えている（新しい ADR で置き換える）`);
     }
   }
+}
+
+// knip.jsonc と tsconfig.json はコメントを書けるので、TypeScript の読み方で読む。
+const readJsonc = (path: string) => {
+  const { config, error } = ts.parseConfigFileTextToJson(path, readFileSync(path, "utf8"));
+  if (error !== undefined) throw new Error(`${path} を読めません`);
+  return config;
+};
+const tracked = files();
+const topDirs = (suffix: string) => [
+  ...new Set(
+    tracked
+      .filter((f) => f.includes("/") && f.endsWith(suffix))
+      .map((f) => f.split("/")[0] as string),
+  ),
+];
+const { scripts } = JSON.parse(readFileSync("package.json", "utf8"));
+for (const { dir, check } of findLayoutGaps({
+  dirsWithTs: topDirs(".ts"),
+  dirsWithTsconfig: topDirs("/tsconfig.json").filter((dir) =>
+    tracked.includes(`${dir}/tsconfig.json`),
+  ),
+  tsconfigInclude: readJsonc("tsconfig.json").include,
+  knipProject: readJsonc("knip.jsonc").project,
+  strykerMutate: JSON.parse(readFileSync("stryker.config.json", "utf8")).mutate,
+  testScript: scripts.test,
+  duplicateScript: scripts["lint:duplicate"],
+})) {
+  problems.push(
+    check === "imports"
+      ? `${dir}/ が依存の向きの表（tools/lib/layout.ts）にない`
+      : `${dir}/ が ${check} の対象に入っていない（tools/lib/layout.ts と設定を合わせる）`,
+  );
 }
 
 if (problems.length > 0) {

@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { lstatSync, readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
-import { CODE_DIRS, countChangedLines, toPathspecs } from "./lib/review-scope.js";
+import { CODE_DIRS } from "./lib/layout.js";
+import { countChangedLines, toPathspecs } from "./lib/review-scope.js";
 
 const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" });
 // -z で NUL 区切りにする。名前に日本語・引用符・tab を含むと、git が引用符付きの形で返し、ファイルを開けなくなるため。
