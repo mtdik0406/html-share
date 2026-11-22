@@ -223,6 +223,7 @@ describe("mutationPlan", () => {
       "pnpm-lock.yaml",
       "stryker.config.json",
       "tsconfig.json",
+      "admin-ui/tsconfig.json",
       "tools/stryker-message-ignorer.js",
     ]) {
       assert.deepEqual(files([changed]), { all: true }, changed);

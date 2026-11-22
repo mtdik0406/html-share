@@ -104,6 +104,8 @@ const AFFECTS_ALL_MUTANTS = new Set([
   "pnpm-lock.yaml",
   "stryker.config.json",
   "tsconfig.json",
+  // 管理画面をまとめる esbuild が読む。
+  "admin-ui/tsconfig.json",
   "tools/stryker-message-ignorer.js",
 ]);
 
