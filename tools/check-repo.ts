@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { filesMatching, trackedFiles } from "./changed-files.js";
 import { findUnlistedDirs } from "./lib/layout.js";
 import {
   adrChangedOutsideStatus,
@@ -19,11 +20,8 @@ const EXEMPT_FROM_TEXT_RULES = new Set([
 
 const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" });
 
-function files(): string[] {
-  return git("ls-files", "--cached", "--others", "--exclude-standard")
-    .split("\n")
-    .filter((f) => f !== "");
-}
+// 一覧は -z で読む（changed-files.ts）。日本語などの名前が引用符付きで返り、検査から外れないように。
+const files = () => filesMatching(["**"]);
 
 // 消したがまだ git に伝えていないファイルは、読まない。
 function readText(path: string): string | undefined {
@@ -72,9 +70,7 @@ for (const path of files()) {
 }
 
 // 追跡しているファイルだけを数える。消したがまだ git に伝えていないファイルは数えない。
-const tracked = git("ls-files", "--cached")
-  .split("\n")
-  .filter((f) => f !== "" && existsSync(f));
+const tracked = trackedFiles().filter((f) => existsSync(f));
 for (const dir of findUnlistedDirs(tracked)) {
   problems.push(`${dir}/ が依存の向きの表（tools/lib/layout.ts）にない`);
 }

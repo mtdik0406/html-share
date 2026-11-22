@@ -57,6 +57,11 @@ export function filesMatching(globs: readonly string[], cwd?: string): string[] 
   ];
 }
 
+/** git が追跡しているファイル。消したがまだ git に伝えていないものも含む。cwd はテストで一時のリポジトリを指すため。 */
+export function trackedFiles(cwd?: string): string[] {
+  return namesIn(cwd, "ls-files", "--cached");
+}
+
 /** 基点から足した行と消した行の数（コードのディレクトリだけ）。新しいファイルは全体を数える。 */
 export function changedCodeLines(base: string): number {
   const numstat = git("diff", "--numstat", mergeBase(base), "--", ...CODE_DIRS);
