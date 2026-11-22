@@ -248,9 +248,19 @@ describe("createAuthHandler", () => {
         },
         (q) => [q, [`${AUTH_COOKIE}=broken`]],
       ];
-      for (const edit of edits) {
+      const noCookies = async (handler: (r: UrlRequest) => Promise<UrlResponse>) => {
+        const req = await callbackRequest(handler);
+        delete req.cookies;
+        return req;
+      };
+      for (const make of [
+        ...edits.map(
+          (edit) => (h: (r: UrlRequest) => Promise<UrlResponse>) => callbackRequest(h, edit),
+        ),
+        noCookies,
+      ]) {
         const { handler, posts } = handlerWith({}, { id_token: idToken() });
-        const res = await handler(await callbackRequest(handler, edit));
+        const res = await handler(await make(handler));
         assert.equal(res.statusCode, 403);
         assert.deepEqual(posts, []);
         for (const name of SIGNED_COOKIES) assert.ok(!cookiesOf(res).has(name));

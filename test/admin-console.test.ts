@@ -93,6 +93,27 @@ describe("管理画面", () => {
       assert.deepEqual(refsIn(b.get(ADMIN_PATHS.authPattern).TrustedKeyGroups), []);
     });
 
+    it("画面のバケットは公開せず、HTTPS 以外の要求を拒む", () => {
+      const [uiBucketId, uiBucket] = Object.entries(resourcesOf("AWS::S3::Bucket")).find(([id]) =>
+        id.startsWith("AdminUiBucket"),
+      ) as [string, Json];
+      assert.deepEqual(uiBucket.Properties.PublicAccessBlockConfiguration, {
+        BlockPublicAcls: true,
+        BlockPublicPolicy: true,
+        IgnorePublicAcls: true,
+        RestrictPublicBuckets: true,
+      });
+      const statements = Object.values(resourcesOf("AWS::S3::BucketPolicy"))
+        .filter((p) => refsIn(p.Properties.Bucket).includes(uiBucketId))
+        .flatMap((p) => p.Properties.PolicyDocument.Statement);
+      assert.ok(
+        statements.some(
+          (s: Json) =>
+            s.Effect === "Deny" && s.Condition?.Bool?.["aws:SecureTransport"] === "false",
+        ),
+      );
+    });
+
     it("画面は、ページとは別のバケットから配る", () => {
       const origin = originOf(behaviors().get("default"));
       const buckets = refsIn(origin.DomainName);
@@ -215,6 +236,13 @@ describe("管理画面", () => {
       const [clientId] = one("AWS::Cognito::UserPoolClient");
       const [, branding] = one("AWS::Cognito::ManagedLoginBranding");
       assert.deepEqual(refsIn(branding.Properties.ClientId), [clientId]);
+    });
+
+    it("アプリクライアントは choice-based のサインイン（パスキーに要る）を許し、branding は Cognito の既定を使う", () => {
+      const [, client] = one("AWS::Cognito::UserPoolClient");
+      assert.ok(client.Properties.ExplicitAuthFlows.includes("ALLOW_USER_AUTH"));
+      const [, branding] = one("AWS::Cognito::ManagedLoginBranding");
+      assert.equal(branding.Properties.UseCognitoProvidedValues, true);
     });
 
     it("所有者 1 人を、確認済みのメールアドレスで作る", () => {

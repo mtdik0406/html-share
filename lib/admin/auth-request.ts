@@ -113,7 +113,9 @@ function claimsOf(token: unknown): Record<string, unknown> | undefined {
   try {
     // Stryker disable next-line StringLiteral: 2 つ目の部分がなければ、既定の文字列が何でも JSON として読めず拒むので、振る舞いは同じ
     const claims: unknown = JSON.parse(Buffer.from(payload ?? "", "base64url").toString("utf8"));
-    return claims && typeof claims === "object" ? (claims as Record<string, unknown>) : undefined;
+    // 広げると、null や数は空のオブジェクトになり、どの条件も満たさない。
+    return { ...(claims as object) } as Record<string, unknown>;
+    // Stryker disable next-line BlockStatement: 空のブロックも undefined を返すので、振る舞いは同じ
   } catch {
     return undefined;
   }

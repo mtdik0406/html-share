@@ -46,7 +46,7 @@ export function adminUiFiles(): Record<string, string> {
   return {
     "index.html": readFileSync(new URL("index.html", UI_DIR), "utf8"),
     "app.css": readFileSync(new URL("app.css", UI_DIR), "utf8"),
-    // Stryker disable next-line StringLiteral: buildSync は write: false のとき、入口ごとに必ず 1 つ出力を返す
+    // Stryker disable next-line OptionalChaining,StringLiteral: buildSync は write: false のとき、入口ごとに必ず 1 つ出力を返す
     "app.js": script?.text ?? "",
   };
 }

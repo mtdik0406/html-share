@@ -20,40 +20,30 @@ export interface PagesHandlerDeps {
 const LIST_PATH = ADMIN_PATHS.pagesApi;
 const ISSUE_PATH = new RegExp(`^${LIST_PATH}([^/]+)/urls$`);
 
-class BadRequest extends Error {}
-
 /**
  * ほかのサイトのフォームは application/json を送れず、fetch で送るには事前の確認（CORS）が要る。
  * Function URL は CORS を許していないので、ほかのサイトからは発行できない。
  */
 function assertJson(request: UrlRequest): void {
+  // Stryker disable next-line StringLiteral: ヘッダーがなければ、既定の文字列が何でも application/json と違い拒むので、振る舞いは同じ
   const type = request.headers?.["content-type"] ?? "";
+  // Stryker disable next-line OptionalChaining: split は必ず 1 つ以上の要素を返すので、振る舞いは同じ
   if (type.split(";")[0]?.trim().toLowerCase() !== "application/json") {
     // Stryker disable next-line StringLiteral: 表示の文言
-    throw new BadRequest("Content-Type は application/json にしてください");
+    throw new Error("Content-Type は application/json にしてください");
   }
 }
 
+/** 要求の誤りは、ここで投げる。JSON として読めない本文も含む。 */
 function parseIssue(request: UrlRequest, slug: string): { slug: string; lifetimeMs: number } {
   assertJson(request);
-  let body: unknown;
-  try {
-    body = JSON.parse(bodyText(request));
-    // Stryker disable next-line BlockStatement: 読めなければ body が undefined のまま days の確かめで 400 になるので、振る舞いは同じ
-  } catch {
-    // Stryker disable next-line StringLiteral: 表示の文言
-    throw new BadRequest("本文が JSON ではありません");
-  }
+  const body: unknown = JSON.parse(bodyText(request));
   const days = (body as { days?: unknown } | null)?.days;
   // Stryker disable next-line StringLiteral: 表示の文言
-  if (typeof days !== "number") throw new BadRequest("days は数にしてください");
+  if (typeof days !== "number") throw new Error("days は数にしてください");
   const lifetimeMs = days * DAY_MS;
-  try {
-    assertSlug(slug);
-    validateLifetimeMs(lifetimeMs);
-  } catch (err) {
-    throw new BadRequest((err as Error).message);
-  }
+  assertSlug(slug);
+  validateLifetimeMs(lifetimeMs);
   return { slug, lifetimeMs };
 }
 
@@ -62,13 +52,15 @@ async function issue(
   request: UrlRequest,
   slug: string,
 ): Promise<UrlResponse> {
+  let input: { slug: string; lifetimeMs: number };
   try {
-    return json(200, await deps.signPage(parseIssue(request, slug)));
+    input = parseIssue(request, slug);
   } catch (err) {
     // Stryker disable next-line ObjectLiteral: 表示の文言
-    if (err instanceof BadRequest) return json(400, { error: err.message });
-    throw err;
+    return json(400, { error: (err as Error).message });
   }
+  // 署名の失敗（SSM など）は要求の誤りではないので、投げて Lambda の失敗にする。
+  return json(200, await deps.signPage(input));
 }
 
 async function list(deps: PagesHandlerDeps): Promise<UrlResponse> {
