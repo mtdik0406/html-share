@@ -51,3 +51,22 @@ export async function issueUrl(fetch: Fetch, slug: string, days: number): Promis
   });
   return (await readJson(res)) as unknown as SignResult;
 }
+
+export interface ErrorView {
+  text: string;
+  /** サインインし直す入口。あれば画面にリンクとして出す。 */
+  signInHref?: string;
+}
+
+/**
+ * 失敗を画面に出す形にする。Cookie 切れでも自動でサインインへ移らない。
+ * 403 の原因が Cookie 切れでないと、サインインとの間を回り続けるため。
+ */
+export function errorView(err: unknown): ErrorView {
+  if (err instanceof SignInRequired) {
+    // Stryker disable next-line StringLiteral: 表示の文言
+    return { text: "サインインが切れています。", signInHref: ADMIN_PATHS.login };
+  }
+  const reason = err instanceof ApiError ? err.reason : String(err);
+  return { text: `失敗しました：${reason}` };
+}

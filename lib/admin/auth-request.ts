@@ -2,16 +2,8 @@ import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { getSignedCookies } from "@aws-sdk/cloudfront-signer";
 import { DAY_MS } from "../../scripts/lib/lifetime.js";
 import { ADMIN_PATHS } from "../names.js";
+import type { AdminConfig } from "./admin-config.js";
 import type { UrlRequest, UrlResponse } from "./http.js";
-
-export interface AdminConfig {
-  userPoolId: string;
-  clientId: string;
-  /** managed login のドメイン（例：<prefix>.auth.<region>.amazoncognito.com）。 */
-  cognitoDomain: string;
-  /** 管理画面の Distribution のドメイン。 */
-  adminDomain: string;
-}
 
 export interface AuthHandlerDeps {
   loadConfig: () => Promise<AdminConfig>;
@@ -135,7 +127,7 @@ function isOwnerToken(deps: AuthHandlerDeps, config: AdminConfig, response: unkn
     claims.iss === issuer &&
     claims.aud === config.clientId &&
     claims.token_use === "id" &&
-    // Stryker disable next-line ConditionalExpression: 数でない exp は次の比較が NaN で偽になるので、振る舞いは同じ。読む人のために残す
+    // 数に変わる文字列（"2000000000"）や配列は、掛け算で数になってしまうので、型で拒む。
     typeof claims.exp === "number" &&
     claims.exp * 1000 > deps.now().getTime() &&
     typeof claims.email === "string" &&

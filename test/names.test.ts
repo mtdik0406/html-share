@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { generationOfParameterName, signingKeyParameterName } from "../lib/names.js";
+import { ADMIN_PATHS, generationOfParameterName, signingKeyParameterName } from "../lib/names.js";
 
 describe("signingKeyParameterName", () => {
   it("1 世代目は、世代を分ける前と同じ名前", () => {
@@ -41,5 +41,26 @@ describe("generationOfParameterName", () => {
     ]) {
       assert.equal(generationOfParameterName(name), undefined, name);
     }
+  });
+});
+
+describe("ADMIN_PATHS", () => {
+  // パスがビヘイビアのパターンの外にあると、別のビヘイビア（署名を求める既定）に落ち、サインインできなくなる。
+  const under = (pattern: string, path: string) =>
+    pattern.endsWith("*") && path.startsWith(pattern.slice(0, -1));
+
+  it("サインインのパスは、どれも署名を求めないビヘイビアの下にある", () => {
+    for (const path of [
+      ADMIN_PATHS.login,
+      ADMIN_PATHS.callback,
+      ADMIN_PATHS.logout,
+      ADMIN_PATHS.signedOut,
+    ]) {
+      assert.ok(under(ADMIN_PATHS.authPattern, path), path);
+    }
+  });
+
+  it("ページの API のパスは、API のビヘイビアの下にある", () => {
+    assert.ok(under(ADMIN_PATHS.pagesApiPattern, ADMIN_PATHS.pagesApi));
   });
 });

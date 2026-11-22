@@ -2,7 +2,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import { ApiError, fetchPages, issueUrl, SignInRequired } from "../lib/admin-ui/api.js";
+import { ApiError, errorView, fetchPages, issueUrl, SignInRequired } from "../lib/admin-ui/api.js";
+import { ADMIN_PATHS } from "../lib/names.js";
 
 interface Sent {
   url: string;
@@ -77,5 +78,25 @@ describe("issueUrl", () => {
       issueUrl(fakeFetch(400, { error: "reason-from-api" }).fetch, "page-a", 31),
       (err) => err instanceof ApiError && err.status === 400 && err.reason === "reason-from-api",
     );
+  });
+});
+
+describe("errorView", () => {
+  it("Cookie が切れたら、自動で移らず、サインインし直す入口を見せる", () => {
+    const view = errorView(new SignInRequired());
+    assert.equal(view.signInHref, ADMIN_PATHS.login);
+    assert.ok(view.text.length > 0);
+  });
+
+  it("API の失敗は、API の理由を見せ、サインインへの入口は出さない", () => {
+    const view = errorView(new ApiError(400, "reason-from-api"));
+    assert.ok(view.text.includes("reason-from-api"));
+    assert.equal(view.signInHref, undefined);
+  });
+
+  it("ほかの失敗も、内容を見せる", () => {
+    const view = errorView(new TypeError("network-down"));
+    assert.ok(view.text.includes("network-down"));
+    assert.equal(view.signInHref, undefined);
   });
 });

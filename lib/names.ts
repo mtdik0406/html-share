@@ -73,12 +73,15 @@ export const ADMIN_CONFIG_PARAMETER_NAME = "/html-share/admin-config";
  * 管理画面のパス。スタック（ビヘイビアと Cognito の戻り先）・Lambda のルート・画面で食い違うと、
  * サインインやサインアウトが Cognito の照合で失敗するので、ここで決める。画面のバンドルからも読むので、ほかを import しない。
  */
+const AUTH_PREFIX = "/auth/";
+const PAGES_API_PREFIX = "/api/pages/";
+
 export const ADMIN_PATHS = {
-  authPattern: "/auth/*",
-  login: "/auth/login",
-  callback: "/auth/callback",
-  logout: "/auth/logout",
-  signedOut: "/auth/signed-out",
-  pagesApiPattern: "/api/pages/*",
-  pagesApi: "/api/pages/",
+  authPattern: `${AUTH_PREFIX}*`,
+  login: `${AUTH_PREFIX}login`,
+  callback: `${AUTH_PREFIX}callback`,
+  logout: `${AUTH_PREFIX}logout`,
+  signedOut: `${AUTH_PREFIX}signed-out`,
+  pagesApiPattern: `${PAGES_API_PREFIX}*`,
+  pagesApi: PAGES_API_PREFIX,
 } as const;

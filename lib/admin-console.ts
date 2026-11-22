@@ -12,7 +12,7 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { buildSync } from "esbuild";
 import { PAGES_PREFIX } from "../scripts/lib/page.js";
-import type { AdminConfig } from "./admin/auth-request.js";
+import type { AdminConfig } from "./admin/admin-config.js";
 import { ADMIN_CONFIG_PARAMETER_NAME, ADMIN_FUNCTION_ENV, ADMIN_PATHS } from "./names.js";
 import { nodeFunction, parameterArn } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";

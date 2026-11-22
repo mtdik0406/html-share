@@ -2,8 +2,7 @@
 // Stryker disable all: DOM を組み立てる入口で、Node のテストには DOM がない。API を呼ぶ部分は api.ts でテストし、描画はブラウザで確かめる
 // 管理画面の描画。slug や URL は textContent で入れ、HTML として解釈させない。
 import { DEFAULT_DAYS, MAX_DAYS } from "../../scripts/lib/lifetime.js";
-import { ADMIN_PATHS } from "../names.js";
-import { ApiError, fetchPages, issueUrl, type PageEntry, SignInRequired } from "./api.js";
+import { errorView, fetchPages, issueUrl, type PageEntry } from "./api.js";
 
 const $ = <T extends HTMLElement>(selector: string): T => {
   const element = document.querySelector<T>(selector);
@@ -22,16 +21,11 @@ function element<K extends keyof HTMLElementTagNameMap>(
 }
 
 function showError(err: unknown): void {
-  // 自動でサインインへ移らない。403 の原因が Cookie 切れでないと、サインインとの間を回り続けるため。
-  if (err instanceof SignInRequired) {
-    $("#status").replaceChildren(
-      "サインインが切れています。",
-      element("a", { href: ADMIN_PATHS.login, textContent: "サインインし直す" }),
-    );
-    return;
-  }
-  const reason = err instanceof ApiError ? err.reason : String(err);
-  $("#status").textContent = `失敗しました：${reason}`;
+  const { text, signInHref } = errorView(err);
+  const link = signInHref
+    ? [element("a", { href: signInHref, textContent: "サインインし直す" })]
+    : [];
+  $("#status").replaceChildren(text, ...link);
 }
 
 function pageRow(page: PageEntry): HTMLLIElement {

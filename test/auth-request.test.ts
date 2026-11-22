@@ -3,9 +3,9 @@
 import assert from "node:assert/strict";
 import { createHash, verify } from "node:crypto";
 import { describe, it } from "node:test";
+import type { AdminConfig } from "../lib/admin/admin-config.js";
 import {
   ADMIN_SESSION_MS,
-  type AdminConfig,
   AUTH_COOKIE,
   type AuthHandlerDeps,
   createAuthHandler,
@@ -280,6 +280,9 @@ describe("createAuthHandler", () => {
         { id_token: idToken({ token_use: "access" }) },
         { id_token: idToken({ exp: NOW_S }) },
         { id_token: idToken({ exp: "later" }) },
+        // 数に変わる文字列や配列も、数としては受け取らない
+        { id_token: idToken({ exp: String(NOW_S + 3600) }) },
+        { id_token: idToken({ exp: [NOW_S + 3600] }) },
         { id_token: idToken({ email: "other@example.com" }) },
         { id_token: idToken({ email: undefined }) },
         { id_token: idToken({ email_verified: false }) },
