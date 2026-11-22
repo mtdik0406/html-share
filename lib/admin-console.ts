@@ -170,7 +170,6 @@ export class AdminConsole extends Construct {
         "default-src 'none'",
         "script-src 'self'",
         "style-src 'self'",
-        "img-src 'self'",
         "connect-src 'self'",
         "form-action 'none'",
         "frame-ancestors 'none'",
