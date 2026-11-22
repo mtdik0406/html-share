@@ -56,6 +56,16 @@ describe("assertSafeToApply", () => {
     );
   });
 
+  it("公開するページは、追加・更新・変更なしを合わせて数える", () => {
+    for (const p of [
+      { add: ["a"], update: ["b"], unchanged: [], remove: [] },
+      { add: ["a"], update: [], unchanged: ["c"], remove: [] },
+      { add: [], update: ["b"], unchanged: [], remove: [] },
+    ]) {
+      assert.doesNotThrow(() => assertSafeToApply(p, 2, deny), JSON.stringify(p));
+    }
+  });
+
   it("削除がなければ通る", () => {
     assert.doesNotThrow(() => assertSafeToApply(plan(3, 0), 3, deny));
   });

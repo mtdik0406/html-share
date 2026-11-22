@@ -94,6 +94,11 @@ describe("applyPlan", () => {
     );
   });
 
+  it("応答の Errors が空なら、消せたとみなす", async () => {
+    const { s3 } = fakeS3((c) => (c instanceof DeleteObjectsCommand ? { Errors: [] } : {}));
+    await applyPlan(s3, "bucket", plan({ remove: ["pages/c/index.html"] }), new Map());
+  });
+
   it("置く中身が手元に無いキーがあれば、何も送らずに失敗する", async () => {
     const { s3, sent } = fakeS3();
     await assert.rejects(applyPlan(s3, "bucket", plan({ add: ["k"] }), new Map()));

@@ -26,6 +26,7 @@ export async function listRemote(
     const res = (await s3.send(
       new ListObjectsV2Command({ Bucket: bucket, Prefix: prefix, ContinuationToken: token }),
     )) as ListObjectsV2CommandOutput;
+    // Stryker disable next-line ArrayDeclaration: Key と ETag のない要素は飛ばすので、既定の配列に何が入っても同じ
     for (const o of res.Contents ?? []) {
       if (o.Key && o.ETag) {
         objects.push({
@@ -76,6 +77,7 @@ export async function applyPlan(
     )) as DeleteObjectsCommandOutput;
     // 一部のキーが消せなくても、応答は 200 で、失敗は Errors に入るだけ。
     if (res.Errors && res.Errors.length > 0) {
+      // Stryker disable next-line ArrowFunction,StringLiteral: 表示の文言
       const detail = res.Errors.map((e) => `${e.Key}: ${e.Code}`).join(", ");
       throw new Error(`消せなかったページがあります: ${detail}`);
     }

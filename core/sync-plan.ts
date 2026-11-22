@@ -33,6 +33,7 @@ export function planSync(local: readonly LocalObject[], remote: readonly RemoteO
   const remoteEtags = new Map(remote.map((o) => [o.key, normalizeEtag(o.etag)]));
   const localKeys = new Set(local.map((o) => o.key));
 
+  // Stryker disable next-line ArrayDeclaration: remove はこのあと必ず代入し直す
   const plan: SyncPlan = { add: [], update: [], unchanged: [], remove: [] };
   for (const { key, md5 } of local) {
     const etag = remoteEtags.get(key);
