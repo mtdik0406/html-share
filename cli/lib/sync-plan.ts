@@ -28,15 +28,14 @@ export function planSync(local: readonly LocalObject[], remote: readonly RemoteO
   const remoteEtags = new Map(remote.map((o) => [o.key, normalizeEtag(o.etag)]));
   const localKeys = new Set(local.map((o) => o.key));
 
-  // Stryker disable next-line ArrayDeclaration: remove はこのあと必ず代入し直す
-  const plan: SyncPlan = { add: [], update: [], unchanged: [], remove: [] };
+  const remove = remote.map((o) => o.key).filter((key) => !localKeys.has(key));
+  const plan: SyncPlan = { add: [], update: [], unchanged: [], remove };
   for (const { key, md5 } of local) {
     const etag = remoteEtags.get(key);
     if (etag === undefined) plan.add.push(key);
     else if (etag === md5.toLowerCase()) plan.unchanged.push(key);
     else plan.update.push(key);
   }
-  plan.remove = remote.map((o) => o.key).filter((key) => !localKeys.has(key));
   return plan;
 }
 

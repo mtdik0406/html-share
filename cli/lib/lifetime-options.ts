@@ -27,10 +27,11 @@ export function parseLifetimeMs({ days, minutes }: LifetimeOptions): number {
 function toPositiveNumber(flag: string, raw: string): number {
   // Number("") と Number(" ") は 0 になるので、空の値もここで弾かれる。
   const value = Number(raw);
-  // Stryker disable all: 0 以下と数でない値は validateLifetimeMs も拒む。ここは、どの引数が誤りかを文言で示すため
+  // 0 以下と数でない値は validateLifetimeMs も拒む。ここで止めるのは、どの引数が誤りかを文言で示すため。
+  // Stryker disable next-line ConditionalExpression,LogicalOperator,EqualityOperator,BlockStatement: ここで止めない側に変えても validateLifetimeMs が拒むので、結果は同じ。止める側に変える変異（常に真など）は、ほかのテストが正しい値で落とす
   if (!Number.isFinite(value) || value <= 0) {
+    // Stryker disable next-line StringLiteral,CallExpression: 表示の文言。投げずに進んでも validateLifetimeMs が拒む
     throw new Error(`${flag} には正の数を指定してください: "${raw}"`);
   }
-  // Stryker restore all
   return value;
 }
