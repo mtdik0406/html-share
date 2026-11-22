@@ -11,6 +11,14 @@ import { HtmlShareStack } from "../../infra/html-share-stack.js";
 import { TEST_ADMIN } from "../helpers/stack.js";
 import { asArray, type Json, refsIn, roleStatements } from "../helpers/template.js";
 
+/** バケットのポリシーの文が、CloudFront のサービスに許しているか。Principal.Service は文字列か配列なので、要素の完全一致で見る。 */
+function allowsCloudFront(s: Json): boolean {
+  return (
+    s.Effect === "Allow" &&
+    asArray<string>(s.Principal?.Service).some((service) => service === "cloudfront.amazonaws.com")
+  );
+}
+
 function assertNoExternalAccess(
   directives: Map<string, string[]>,
   allowedDirectives: ReadonlySet<string>,
@@ -109,10 +117,7 @@ describe("HtmlShareStack", () => {
 
   it("CloudFront への許可は、このスタックの Distribution に限られ、ページを読める", () => {
     const distributionIds = Object.keys(resourcesOf("AWS::CloudFront::Distribution"));
-    const cloudFrontAllows = bucketPolicyStatements().filter(
-      (s) =>
-        s.Effect === "Allow" && asArray(s.Principal?.Service).includes("cloudfront.amazonaws.com"),
-    );
+    const cloudFrontAllows = bucketPolicyStatements().filter(allowsCloudFront);
 
     assert.ok(cloudFrontAllows.some((s) => asArray(s.Action).includes("s3:GetObject")));
     for (const s of cloudFrontAllows) {
@@ -134,11 +139,7 @@ describe("HtmlShareStack", () => {
     );
     const allows = policies
       .flatMap((p) => p.Properties.PolicyDocument.Statement)
-      .filter(
-        (s: Json) =>
-          s.Effect === "Allow" &&
-          asArray(s.Principal?.Service).includes("cloudfront.amazonaws.com"),
-      );
+      .filter(allowsCloudFront);
     assert.ok(allows.length > 0);
     const [[viewerId]] = viewerDistributions();
     for (const s of allows) {
@@ -150,10 +151,7 @@ describe("HtmlShareStack", () => {
   });
 
   it("CloudFront に許すのはページの読み取りだけ（書き換えも削除もさせない）", () => {
-    const cloudFrontAllows = bucketPolicyStatements().filter(
-      (s) =>
-        s.Effect === "Allow" && asArray(s.Principal?.Service).includes("cloudfront.amazonaws.com"),
-    );
+    const cloudFrontAllows = bucketPolicyStatements().filter(allowsCloudFront);
     assert.ok(cloudFrontAllows.length > 0);
     for (const s of cloudFrontAllows) {
       assert.deepEqual(asArray(s.Action), ["s3:GetObject"]);
