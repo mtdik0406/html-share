@@ -98,7 +98,7 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 - SVG の `<use>` から別ファイルの SVG は参照できない。SVG をページに直接書く
 - 外部の URL（CDN のライブラリ、Google Fonts など）は読み込めない
 - HTML は UTF-8 で書く
-- 埋め込む属性・拡張子・大きさの上限は `scripts/lib/embed.ts` にある。埋め込めない参照には `sync` が警告を出す
+- 埋め込む属性・拡張子・大きさの上限は `cli/lib/embed.ts` にある。埋め込めない参照には `sync` が警告を出す
 
 ページは sandbox の中で動き、許されるのはインラインの JS の実行だけ。通信（`fetch` など）、Cookie と Storage、別タブ、フォームの送信、ダイアログ、`eval` は使えない。
 
@@ -114,7 +114,8 @@ URL を止める、鍵が漏れた、依存の脆弱性をすぐ直したい、�
 ## 開発
 
 - 作業の約束は [AGENTS.md](AGENTS.md)、設計の判断とその理由は [docs/adr/](docs/adr/) にある
-- 期限と slug の規則（`scripts/lib/lifetime.ts`・`scripts/lib/page.ts`）と署名（`scripts/lib/signed-url.ts`・`scripts/lib/signing-key.ts`）は、署名の Lambda のバンドルにも入る。変えたら `pnpm exec cdk deploy` するまで、Lambda は古い規則のまま
+- コードは、どこからも使う規則（`core/`）・手元のコマンド（`cli/`）・Lambda（`functions/`）・CDK（`infra/`、入口は `bin/app.ts`）・管理画面のブラウザのコード（`admin-ui/`）・検査の手順（`tools/`）に分けてある。テストは `test/` の下に、ソースと同じ形で置く。読んでよい向きは `pnpm run lint:repo` が検査する（[ADR 14](docs/adr/0014-folder-layout.md)）
+- `core/` の規則（期限・slug・署名・鍵など）は Lambda のバンドルにも入る。変えたら `pnpm exec cdk deploy` するまで、Lambda は古い規則のまま
 - `pnpm run check` が、コミットの前・CI・Claude Code の作業の終わりに実行される。変異テストは、CI が全体を（`pnpm run test:mutation`）、手元では変えたファイルだけを前回の結果を使って（`pnpm run test:mutation:scope`）実行する
 - どれも作業ツリーのコードを実行する。信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない
 

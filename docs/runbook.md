@@ -16,7 +16,7 @@
 
 1. `.keys/public.pem` を、世代を名前に入れてリポジトリの外へ退避する（例：今が 1 世代目なら `mkdir ~/html-share-keys-gen1 && mv .keys/public.pem ~/html-share-keys-gen1/`）。作り直しをやめるとき、古い公開鍵で deploy し直すため。`.keys/private.pem` が残っていたら消す（古い世代の秘密鍵は SSM にある）
 2. `pnpm run keygen`
-3. `lib/names.ts` の `SIGNING_KEY_GENERATION` を 1 増やしてコミットする
+3. `core/names.ts` の `SIGNING_KEY_GENERATION` を 1 増やしてコミットする
 4. `pnpm run keys:store`（新しい世代の名前に置く。古い世代の鍵には触らない）
 5. `pnpm exec cdk diff` で、公開鍵が 1 つ足されて 1 つ消えることと、キーグループ・Lambda の環境変数（Key-Pair-Id とパラメータの名前）・ロールが読めるパラメータが変わることを確かめる
 6. `pnpm exec cdk deploy`（終わるまでの数十秒は、`sign` が失敗することがある）
