@@ -7,7 +7,7 @@ import * as s3 from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
 import { AdminConsole, type AdminConsoleProps } from "./admin-console.js";
 import { ADMIN_PATHS, OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
-import { nodeFunction } from "./node-function.js";
+import { nodeFunction, parameterArn } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
 
 export interface HtmlShareStackProps extends StackProps {
@@ -100,15 +100,7 @@ export class HtmlShareStack extends Stack {
     signFunction.addToRolePolicy(
       new iam.PolicyStatement({
         actions: ["ssm:GetParameter"],
-        resources: [
-          this.formatArn({
-            service: "ssm",
-            resource: "parameter",
-            // ARN では、名前の先頭の / を resource の区切りと兼ねる。
-            // Stryker disable next-line Regex: g のない replace は最初の 1 つだけを置き換え、名前は / で始まるので、^ の有無で結果は同じ
-            resourceName: parameterName.replace(/^\//, ""),
-          }),
-        ],
+        resources: [parameterArn(this, parameterName)],
       }),
     );
 

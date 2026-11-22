@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { App } from "aws-cdk-lib";
+import { cognitoDomainPrefix as cognitoDomainPrefixOf } from "../lib/cognito-prefix.js";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
 import { SIGNING_KEY_GENERATION, STACK_NAME } from "../lib/names.js";
 import { PUBLIC_KEY_PATH } from "../scripts/lib/paths.js";
@@ -28,8 +28,7 @@ if (!account) {
   console.error("AWS のアカウントが分かりません。AWS_PROFILE を指定してください");
   process.exit(1);
 }
-// prefix domain はリージョンの中で一意にする。アカウント ID をそのまま出さないよう、ハッシュから作る。
-const cognitoDomainPrefix = `html-share-${createHash("sha256").update(account).digest("hex").slice(0, 12)}`;
+const cognitoDomainPrefix = cognitoDomainPrefixOf(account);
 
 const app = new App();
 

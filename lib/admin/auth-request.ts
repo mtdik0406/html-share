@@ -54,7 +54,7 @@ function cookieValue(request: UrlRequest, name: string): string | undefined {
   return undefined;
 }
 
-const redirect = (location: string, cookies: string[] = []): UrlResponse => ({
+const redirect = (location: string, cookies: string[]): UrlResponse => ({
   statusCode: 302,
   headers: { location },
   cookies,
@@ -62,6 +62,7 @@ const redirect = (location: string, cookies: string[] = []): UrlResponse => ({
 
 const forbidden = (): UrlResponse => ({
   statusCode: 403,
+  // Stryker disable next-line ObjectLiteral,StringLiteral: 表示の形式
   headers: { "content-type": "text/plain; charset=utf-8" },
   // Stryker disable next-line StringLiteral: 表示の文言
   body: `サインインできませんでした。もう一度 ${ADMIN_PATHS.login} から始めてください`,
@@ -96,9 +97,11 @@ async function startLogin(deps: AuthHandlerDeps): Promise<UrlResponse> {
 
 /** サインインを始めたブラウザから戻ってきたときだけ、verifier を返す。 */
 function verifierFor(request: UrlRequest): { code: string; verifier: string } | undefined {
+  // Stryker disable next-line StringLiteral: クエリがなければ、既定の文字列が何でも code がなく拒むので、振る舞いは同じ
   const query = new URLSearchParams(request.rawQueryString ?? "");
   const code = query.get("code");
   const state = query.get("state");
+  // Stryker disable next-line StringLiteral: Cookie がなければ、既定の文字列が何でも state と合わず拒むので、振る舞いは同じ
   const [savedState, verifier] = (cookieValue(request, AUTH_COOKIE) ?? "").split(".");
   if (query.has("error") || !code || !state || !savedState || !verifier) return undefined;
   return sameText(state, savedState) ? { code, verifier } : undefined;
@@ -108,6 +111,7 @@ function claimsOf(token: unknown): Record<string, unknown> | undefined {
   if (typeof token !== "string") return undefined;
   const payload = token.split(".")[1];
   try {
+    // Stryker disable next-line StringLiteral: 2 つ目の部分がなければ、既定の文字列が何でも JSON として読めず拒むので、振る舞いは同じ
     const claims: unknown = JSON.parse(Buffer.from(payload ?? "", "base64url").toString("utf8"));
     return claims && typeof claims === "object" ? (claims as Record<string, unknown>) : undefined;
   } catch {
@@ -127,6 +131,7 @@ function isOwnerToken(deps: AuthHandlerDeps, config: AdminConfig, response: unkn
     claims.iss === issuer &&
     claims.aud === config.clientId &&
     claims.token_use === "id" &&
+    // Stryker disable next-line ConditionalExpression: 数でない exp は次の比較が NaN で偽になるので、振る舞いは同じ。読む人のために残す
     typeof claims.exp === "number" &&
     claims.exp * 1000 > deps.now().getTime() &&
     typeof claims.email === "string" &&

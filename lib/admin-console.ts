@@ -14,7 +14,7 @@ import { buildSync } from "esbuild";
 import { PAGES_PREFIX } from "../scripts/lib/page.js";
 import type { AdminConfig } from "./admin/auth-request.js";
 import { ADMIN_CONFIG_PARAMETER_NAME, ADMIN_FUNCTION_ENV, ADMIN_PATHS } from "./names.js";
-import { nodeFunction } from "./node-function.js";
+import { nodeFunction, parameterArn } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
 
 export interface AdminConsoleProps {
@@ -46,17 +46,9 @@ export function adminUiFiles(): Record<string, string> {
   return {
     "index.html": readFileSync(new URL("index.html", UI_DIR), "utf8"),
     "app.css": readFileSync(new URL("app.css", UI_DIR), "utf8"),
+    // Stryker disable next-line StringLiteral: buildSync は write: false のとき、入口ごとに必ず 1 つ出力を返す
     "app.js": script?.text ?? "",
   };
-}
-
-function parameterArn(scope: Construct, name: string): string {
-  return Stack.of(scope).formatArn({
-    service: "ssm",
-    resource: "parameter",
-    // ARN では、名前の先頭の / を resource の区切りと兼ねる。
-    resourceName: name.slice(1),
-  });
 }
 
 /** 管理画面：ページの一覧と URL の発行だけを行う（ADR 13）。 */

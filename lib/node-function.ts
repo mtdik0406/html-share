@@ -1,4 +1,4 @@
-import { Duration, RemovalPolicy } from "aws-cdk-lib";
+import { Duration, RemovalPolicy, Stack } from "aws-cdk-lib";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as nodejs from "aws-cdk-lib/aws-lambda-nodejs";
 import * as logs from "aws-cdk-lib/aws-logs";
@@ -37,5 +37,16 @@ export function nodeFunction(scope: Construct, id: string, props: NodeFunctionPr
       retention: logs.RetentionDays.ONE_MONTH,
       removalPolicy: RemovalPolicy.DESTROY,
     }),
+  });
+}
+
+/** SSM のパラメータの ARN。Lambda のロールに、使うパラメータだけを読ませるために使う。 */
+export function parameterArn(scope: Construct, name: string): string {
+  return Stack.of(scope).formatArn({
+    service: "ssm",
+    resource: "parameter",
+    // ARN では、名前の先頭の / を resource の区切りと兼ねる。
+    // Stryker disable next-line Regex: g のない replace は最初の 1 つだけを置き換え、名前は / で始まるので、^ の有無で結果は同じ
+    resourceName: name.replace(/^\//, ""),
   });
 }

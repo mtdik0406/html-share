@@ -20,13 +20,14 @@ async function postForm(url: string, params: Record<string, string>): Promise<un
     redirect: "error",
   });
   // 失敗の応答（invalid_grant など）にも JSON が返る。id_token がなければ、呼び出し側が拒む。
-  return res.json();
+  // JSON でない応答（5xx の HTML など）も、id_token がないものとして拒む。
+  return res.json().catch(() => undefined);
 }
 
 export const handler = createAuthHandler({
-  loadConfig: cacheUntilFailure(async () =>
-    parseAdminConfig(await loadSigningKey(ssm, configParameterName)),
-  ),
+  // 設定は持ち続けない。ユーザープールやアプリクライアントが作り直されても、実行環境が古い値を使い続けないため。
+  // サインインの要求は少ないので、毎回 SSM を読んでも費用と遅れは小さい。
+  loadConfig: async () => parseAdminConfig(await loadSigningKey(ssm, configParameterName)),
   region: env("AWS_REGION"),
   ownerEmail: env(ADMIN_FUNCTION_ENV.ownerEmail),
   keyPairId: env(ADMIN_FUNCTION_ENV.keyPairId),

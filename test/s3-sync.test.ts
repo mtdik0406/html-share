@@ -123,6 +123,20 @@ describe("listRemote", () => {
     assert.equal(sent.length, 2);
   });
 
+  it("キーか ETag のないオブジェクトは返さない", async () => {
+    const { s3 } = fakeS3(() => ({
+      Contents: [
+        { Key: "pages/a/index.html" },
+        { ETag: '"2"' },
+        { Key: "pages/c/index.html", ETag: '"3"' },
+      ],
+      IsTruncated: false,
+    }));
+    assert.deepEqual(await listRemote(s3, "bucket", "pages/"), [
+      { key: "pages/c/index.html", etag: '"3"' },
+    ]);
+  });
+
   it("更新時刻があれば、一緒に返す", async () => {
     const at = new Date("2030-01-02T03:04:05Z");
     const { s3 } = fakeS3(() => ({

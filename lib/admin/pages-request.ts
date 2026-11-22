@@ -29,6 +29,7 @@ class BadRequest extends Error {}
 function assertJson(request: UrlRequest): void {
   const type = request.headers?.["content-type"] ?? "";
   if (type.split(";")[0]?.trim().toLowerCase() !== "application/json") {
+    // Stryker disable next-line StringLiteral: 表示の文言
     throw new BadRequest("Content-Type は application/json にしてください");
   }
 }
@@ -38,10 +39,13 @@ function parseIssue(request: UrlRequest, slug: string): { slug: string; lifetime
   let body: unknown;
   try {
     body = JSON.parse(bodyText(request));
+    // Stryker disable next-line BlockStatement: 読めなければ body が undefined のまま days の確かめで 400 になるので、振る舞いは同じ
   } catch {
+    // Stryker disable next-line StringLiteral: 表示の文言
     throw new BadRequest("本文が JSON ではありません");
   }
   const days = (body as { days?: unknown } | null)?.days;
+  // Stryker disable next-line StringLiteral: 表示の文言
   if (typeof days !== "number") throw new BadRequest("days は数にしてください");
   const lifetimeMs = days * DAY_MS;
   try {
@@ -61,6 +65,7 @@ async function issue(
   try {
     return json(200, await deps.signPage(parseIssue(request, slug)));
   } catch (err) {
+    // Stryker disable next-line ObjectLiteral: 表示の文言
     if (err instanceof BadRequest) return json(400, { error: err.message });
     throw err;
   }
@@ -73,6 +78,7 @@ async function list(deps: PagesHandlerDeps): Promise<UrlResponse> {
   return json(200, { pages });
 }
 
+// Stryker disable next-line ObjectLiteral,StringLiteral: 表示の文言
 const METHOD_NOT_ALLOWED = json(405, { error: "method not allowed" });
 
 export function createPagesHandler(
@@ -87,6 +93,7 @@ export function createPagesHandler(
     if (slug !== undefined) {
       return method === "POST" ? issue(deps, request, slug) : METHOD_NOT_ALLOWED;
     }
+    // Stryker disable next-line ObjectLiteral,StringLiteral: 表示の文言
     return json(404, { error: "not found" });
   };
 }

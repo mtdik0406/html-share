@@ -85,6 +85,8 @@ function cookiesOf(res: UrlResponse) {
 }
 
 function assertProtected(attrs: Map<string, string>): void {
+  // Domain が付くと、__Host- の Cookie はブラウザに捨てられ、署名付き Cookie はサブドメインにも送られる。
+  assert.ok(!attrs.has("domain"), "Domain が付いている");
   assert.ok(attrs.has("secure"), "Secure がない");
   assert.ok(attrs.has("httponly"), "HttpOnly がない");
   assert.equal(attrs.get("samesite"), "Lax");
@@ -129,6 +131,8 @@ describe("createAuthHandler", () => {
       assert.equal(q.get("code_challenge_method"), "S256");
       assert.ok((q.get("state") ?? "").length >= 32, "state が短い");
       assertProtected(cookie.attrs);
+      // __Host- を付けると、Secure・Path=/・Domain なしでなければブラウザが受け取らない
+      assert.ok(AUTH_COOKIE.startsWith("__Host-"));
       assert.ok(Number(cookie.attrs.get("max-age")) > 0);
       assert.ok(Number(cookie.attrs.get("max-age")) <= 900, "途中の Cookie が長く残る");
       // 途中の Cookie に入れた値から、Cognito に渡した challenge を作れる
@@ -192,8 +196,11 @@ describe("createAuthHandler", () => {
       const signature = fromCloudFront(cookies.get("CloudFront-Signature")?.value ?? "");
       assert.ok(verify("RSA-SHA1", policy, publicKey, signature), "署名が公開鍵で確かめられない");
 
-      // 途中の Cookie は消す
-      assert.equal(cookies.get(AUTH_COOKIE)?.attrs.get("max-age"), "0");
+      // 途中の Cookie は、発行と同じ属性で消す（属性が違うと、ブラウザは消さない）
+      const cleared = cookies.get(AUTH_COOKIE);
+      assert.equal(cleared?.value, "");
+      assert.equal(cleared?.attrs.get("max-age"), "0");
+      assertProtected(cleared?.attrs ?? new Map());
     });
 
     it("メールアドレスは大文字と小文字を区別しない", async () => {
@@ -201,6 +208,20 @@ describe("createAuthHandler", () => {
       const res = await handler(await callbackRequest(handler));
       assert.equal(res.statusCode, 302);
       assert.ok(cookiesOf(res).has("CloudFront-Signature"));
+    });
+
+    it("deploy で渡したメールアドレスの大文字と小文字も区別しない", async () => {
+      const { handler } = handlerWith({ ownerEmail: "Owner@Example.COM" }, { id_token: idToken() });
+      const res = await handler(await callbackRequest(handler));
+      assert.equal(res.statusCode, 302);
+    });
+
+    it("ほかの Cookie と並んでいても、似た名前の Cookie と取り違えない", async () => {
+      const { handler } = handlerWith({}, { id_token: idToken() });
+      const ok = await callbackRequest(handler, (q, c) => [q, ["other=1", "broken", c]]);
+      assert.equal((await handler(ok)).statusCode, 302);
+      const lookalike = await callbackRequest(handler, (q, c) => [q, [`${c.replace("=", "x=")}`]]);
+      assert.equal((await handler(lookalike)).statusCode, 403);
     });
 
     it("期限が 1 秒でも残るトークンは受け入れる", async () => {
@@ -242,6 +263,8 @@ describe("createAuthHandler", () => {
         { id_token: 1 },
         { id_token: "not-a-jwt" },
         { id_token: "a.!!!.c" },
+        { id_token: `a.${b64url("null")}.c` },
+        { id_token: `a.${b64url("1")}.c` },
         { id_token: idToken({ iss: `${ISSUER}x` }) },
         { id_token: idToken({ aud: "other" }) },
         { id_token: idToken({ token_use: "access" }) },
@@ -286,7 +309,10 @@ describe("createAuthHandler", () => {
     );
     const cookies = cookiesOf(res);
     for (const name of SIGNED_COOKIES) {
-      assert.equal(cookies.get(name)?.attrs.get("max-age"), "0", `${name} を消していない`);
+      const cleared = cookies.get(name);
+      assert.equal(cleared?.value, "", name);
+      assert.equal(cleared?.attrs.get("max-age"), "0", `${name} を消していない`);
+      assertProtected(cleared?.attrs ?? new Map());
     }
   });
 

@@ -86,6 +86,32 @@ describe("createPagesHandler", () => {
     assert.deepEqual(signed, [{ slug: "page-a", lifetimeMs: MAX_DAYS * DAY_MS }]);
   });
 
+  it("期限の下限ちょうど（1 分）は受け入れ、それより短い期限は拒む", async () => {
+    const { handler, signed } = handlerWith();
+    const MINUTE_MS = 60_000;
+    assert.equal((await handler(post("page-a", { days: MINUTE_MS / DAY_MS }))).statusCode, 200);
+    assert.equal(
+      (await handler(post("page-a", { days: (MINUTE_MS - 1) / DAY_MS }))).statusCode,
+      400,
+    );
+    assert.deepEqual(signed, [{ slug: "page-a", lifetimeMs: MINUTE_MS }]);
+  });
+
+  it("Content-Type は大文字と小文字・前後の空白を区別しない", async () => {
+    const { handler } = handlerWith();
+    for (const type of ["Application/JSON", " application/json ; charset=utf-8"]) {
+      const res = await handler(post("page-a", { days: 7 }, { "content-type": type }));
+      assert.equal(res.statusCode, 200, type);
+    }
+  });
+
+  it("ヘッダーのない発行の要求は 400 にする", async () => {
+    const { handler, signed } = handlerWith();
+    const res = await handler({ ...post("page-a", { days: 7 }), headers: undefined });
+    assert.equal(res.statusCode, 400);
+    assert.deepEqual(signed, []);
+  });
+
   it("正しくない発行の要求は 400 にし、署名しない", async () => {
     const { handler, signed } = handlerWith();
     for (const req of [
@@ -120,6 +146,8 @@ describe("createPagesHandler", () => {
       [request("GET", "/api/pages"), 404],
       [request("GET", "/api/pages/page-a"), 404],
       [request("GET", "/api/pages/page-a/urls/extra"), 404],
+      [request("POST", "/api/pages/page-a/urlsx"), 404],
+      [request("POST", "/x/api/pages/page-a/urls"), 404],
       [request("GET", "/api/other/"), 404],
       [request("POST", "/api/pages/", { headers: JSON_HEADERS, body: "{}" }), 405],
       [request("GET", "/api/pages/page-a/urls"), 405],
