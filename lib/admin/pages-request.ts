@@ -25,7 +25,7 @@ const ISSUE_PATH = new RegExp(`^${LIST_PATH}([^/]+)/urls$`);
  * Function URL は CORS を許していないので、ほかのサイトからは発行できない。
  */
 function assertJson(request: UrlRequest): void {
-  // Stryker disable next-line StringLiteral: ヘッダーがなければ、既定の文字列が何でも application/json と違い拒むので、振る舞いは同じ
+  // Stryker disable next-line StringLiteral,OptionalChaining: ヘッダーがなければ、どう変えても拒む（TypeError も 400 になる）ので、振る舞いは同じ
   const type = request.headers?.["content-type"] ?? "";
   // Stryker disable next-line OptionalChaining: split は必ず 1 つ以上の要素を返すので、振る舞いは同じ
   if (type.split(";")[0]?.trim().toLowerCase() !== "application/json") {
@@ -38,7 +38,8 @@ function assertJson(request: UrlRequest): void {
 function parseIssue(request: UrlRequest, slug: string): { slug: string; lifetimeMs: number } {
   assertJson(request);
   const body: unknown = JSON.parse(bodyText(request));
-  const days = (body as { days?: unknown } | null)?.days;
+  // 本文が null なら TypeError になり、呼び出し側で 400 にする。
+  const days = (body as { days?: unknown }).days;
   // Stryker disable next-line StringLiteral: 表示の文言
   if (typeof days !== "number") throw new Error("days は数にしてください");
   const lifetimeMs = days * DAY_MS;

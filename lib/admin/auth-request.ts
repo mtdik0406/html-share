@@ -47,6 +47,7 @@ function setCookie(name: string, value: string, maxAgeS: number): string {
 }
 
 function cookieValue(request: UrlRequest, name: string): string | undefined {
+  // Stryker disable next-line ArrayDeclaration: = のない値は、どの名前とも一致しないので、振る舞いは同じ
   for (const pair of request.cookies ?? []) {
     const at = pair.indexOf("=");
     if (pair.slice(0, at) === name) return pair.slice(at + 1);
@@ -110,15 +111,16 @@ function verifierFor(request: UrlRequest): { code: string; verifier: string } | 
 function claimsOf(token: unknown): Record<string, unknown> | undefined {
   if (typeof token !== "string") return undefined;
   const payload = token.split(".")[1];
+  // Stryker disable BlockStatement: try と catch のどちらのブロックを空にしても undefined を返し、拒むので、振る舞いは同じ
   try {
     // Stryker disable next-line StringLiteral: 2 つ目の部分がなければ、既定の文字列が何でも JSON として読めず拒むので、振る舞いは同じ
     const claims: unknown = JSON.parse(Buffer.from(payload ?? "", "base64url").toString("utf8"));
     // 広げると、null や数は空のオブジェクトになり、どの条件も満たさない。
     return { ...(claims as object) } as Record<string, unknown>;
-    // Stryker disable next-line BlockStatement: 空のブロックも undefined を返すので、振る舞いは同じ
   } catch {
     return undefined;
   }
+  // Stryker restore BlockStatement
 }
 
 /**

@@ -27,6 +27,7 @@ export function json(statusCode: number, value: unknown): UrlResponse {
 }
 
 export function bodyText(request: UrlRequest): string {
+  // Stryker disable next-line StringLiteral: 本文がなければ、既定の文字列が何でも JSON として読めず 400 になるので、振る舞いは同じ
   const body = request.body ?? "";
   return request.isBase64Encoded ? Buffer.from(body, "base64").toString("utf8") : body;
 }
