@@ -35,6 +35,7 @@ const UI_DIR = new URL("./admin-ui/", import.meta.url);
 
 /** 画面の静的ファイル。スクリプトは TypeScript から 1 ファイルにまとめ、インラインのスクリプトを使わない。 */
 export function adminUiFiles(): Record<string, string> {
+  // Stryker disable StringLiteral: 入口はディレクトリを渡しても index.ts になり、形式・対象・ライセンスのコメントは、どれを選んでもブラウザで同じに動く
   const [script] = buildSync({
     entryPoints: [fileURLToPath(new URL("index.ts", UI_DIR))],
     bundle: true,
@@ -43,6 +44,7 @@ export function adminUiFiles(): Record<string, string> {
     write: false,
     legalComments: "none",
   }).outputFiles;
+  // Stryker restore StringLiteral
   return {
     "index.html": readFileSync(new URL("index.html", UI_DIR), "utf8"),
     "app.css": readFileSync(new URL("app.css", UI_DIR), "utf8"),
@@ -159,6 +161,7 @@ export class AdminConsole extends Construct {
     // CloudFront の OAC からだけ呼べるようにする。CloudFront を通らない呼び出しは、IAM の署名がなく拒まれる。
     const lambdaOrigin = (fn: lambda.IFunction) =>
       origins.FunctionUrlOrigin.withOriginAccessControl(
+        // Stryker disable next-line ObjectLiteral: Function URL の既定も AWS_IAM なので、振る舞いは同じ。既定に頼らないよう明示する
         fn.addFunctionUrl({ authType: lambda.FunctionUrlAuthType.AWS_IAM }),
       );
     const responseHeadersPolicy = new cloudfront.ResponseHeadersPolicy(this, "Headers", {

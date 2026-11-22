@@ -114,6 +114,16 @@ describe("管理画面", () => {
       );
     });
 
+    it("画面のバケットは、スタックを消すと中身ごと消える", () => {
+      const [uiBucketId] = Object.entries(resourcesOf("AWS::S3::Bucket")).find(([id]) =>
+        id.startsWith("AdminUiBucket"),
+      ) as [string, Json];
+      const autoDeletes = Object.values(resourcesOf("Custom::S3AutoDeleteObjects")).filter((r) =>
+        refsIn(r.Properties.BucketName).includes(uiBucketId),
+      );
+      assert.equal(autoDeletes.length, 1);
+    });
+
     it("画面は、ページとは別のバケットから配る", () => {
       const origin = originOf(behaviors().get("default"));
       const buckets = refsIn(origin.DomainName);
@@ -218,6 +228,9 @@ describe("管理画面", () => {
       const p = pool.Properties;
       assert.equal(p.UserPoolTier, "ESSENTIALS");
       assert.equal(p.AdminCreateUserConfig.AllowAdminCreateUserOnly, true);
+      // パスワードを忘れたときに、確認済みのメールアドレスで戻れるようにする。
+      assert.deepEqual(p.AutoVerifiedAttributes, ["email"]);
+      assert.ok(p.Policies.PasswordPolicy.MinimumLength >= 12, "パスワードが短くてよい");
       assert.deepEqual([...p.Policies.SignInPolicy.AllowedFirstAuthFactors].sort(), [
         "PASSWORD",
         "WEB_AUTHN",
@@ -261,6 +274,8 @@ describe("管理画面", () => {
       const [, client] = one("AWS::Cognito::UserPoolClient");
       const c = client.Properties;
       assert.equal(c.GenerateSecret, false);
+      // ユーザーがいるかどうかを、サインインの応答の違いから知らせない。
+      assert.equal(c.PreventUserExistenceErrors, "ENABLED");
       assert.deepEqual(c.AllowedOAuthFlows, ["code"]);
       assert.deepEqual([...c.AllowedOAuthScopes].sort(), ["email", "openid"]);
       assert.deepEqual(c.SupportedIdentityProviders, ["COGNITO"]);
