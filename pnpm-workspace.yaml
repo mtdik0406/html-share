@@ -7,3 +7,9 @@ minimumReleaseAge: 20160
 
 # package.json の engines に合わない Node では入れない。
 engineStrict: true
+
+# Stryker が固定している版に、Dependabot が知らせた脆弱性がある（minimatch・qs、開発用）。
+# Stryker が直した版を出すまで、直った版に差し替える。外すときは pnpm why で親の版を確かめる。
+overrides:
+  minimatch: ^11.0.1
+  qs: ^6.16.1
