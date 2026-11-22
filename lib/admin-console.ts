@@ -84,7 +84,8 @@ export class AdminConsole extends Construct {
       autoVerify: { email: true },
       accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
       signInPolicy: { allowedFirstAuthFactors: { password: true, passkey: true } },
-      passkeyRelyingPartyId: cognitoDomain,
+      // RP ID は指定せず、Cognito の既定（カスタムドメインがなければ prefix domain）に任せる（ADR 13）。
+      // ユーザープールを作る時点では prefix domain がまだないので、指定すると作成が拒まれる。
       passkeyUserVerification: cognito.PasskeyUserVerification.REQUIRED,
       // パスワードだけでは入れないようにする。user verification 付きのパスキーは、それだけで MFA を満たす（ADR 13）。
       mfa: cognito.Mfa.REQUIRED,

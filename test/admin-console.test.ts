@@ -20,7 +20,7 @@ import { TEST_ADMIN } from "./helpers/stack.js";
 import { asArray, type Json, refsIn, resolveString, roleStatements } from "./helpers/template.js";
 
 const REGION = "ap-northeast-1";
-const RP_ID = `${TEST_ADMIN.cognitoDomainPrefix}.auth.${REGION}.amazoncognito.com`;
+const LOGIN_DOMAIN = `${TEST_ADMIN.cognitoDomainPrefix}.auth.${REGION}.amazoncognito.com`;
 
 describe("管理画面", () => {
   let template: Template;
@@ -243,7 +243,9 @@ describe("管理画面", () => {
       assert.deepEqual(p.EnabledMfas, ["SOFTWARE_TOKEN_MFA"]);
       assert.equal(p.WebAuthnFactorConfiguration, "MULTI_FACTOR_WITH_USER_VERIFICATION");
       assert.equal(p.WebAuthnUserVerification, "required");
-      assert.equal(p.WebAuthnRelyingPartyID, RP_ID);
+      // RP ID は指定しない。カスタムドメインがなければ、Cognito が prefix domain を使う。
+      // ユーザープールを作る時点では prefix domain がまだないので、指定すると作成が拒まれる。
+      assert.equal(p.WebAuthnRelyingPartyID, undefined);
     });
 
     it("managed login は version 2 で、prefix domain に置く", () => {
@@ -307,7 +309,7 @@ describe("管理画面", () => {
       assert.deepEqual(parseAdminConfig(resolveString(param.Properties.Value)), {
         userPoolId: `<${poolId}>`,
         clientId: `<${clientId}>`,
-        cognitoDomain: RP_ID,
+        cognitoDomain: LOGIN_DOMAIN,
         adminDomain: `<${admin()[0]}.DomainName>`,
       });
     });
