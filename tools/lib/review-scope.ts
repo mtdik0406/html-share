@@ -49,14 +49,12 @@ export function changedLines(diff: string): Map<string, Set<number>> {
   const result = new Map<string, Set<number>>();
   let lines: Set<number> | undefined;
   for (const line of diff.split("\n")) {
-    // Stryker disable next-line Regex: diff の行は +・-・空白・@ で始まるので、^ と $ の有無で結果は変わらない
     const file = /^\+\+\+ b\/(.+)$/.exec(line);
     if (file) {
       lines = new Set();
       result.set(file[1] as string, lines);
       continue;
     }
-    // Stryker disable next-line Regex: hunk の見出しは行頭にしか出ないので、^ の有無で結果は変わらない
     const hunk = /^@@ -\S+ \+(\d+)(?:,(\d+))? @@/.exec(line);
     if (hunk && lines) {
       const start = Number(hunk[1]);
@@ -148,7 +146,6 @@ export function reviewerCount(changedCodeLines: number): 1 | 2 {
 /** `git diff --numstat` の出力と、新しいファイルの中身から、足した行と消した行の数を出す。 */
 export function countChangedLines(numstat: string, newFiles: readonly string[]): number {
   // バイナリのファイルは数の代わりに "-" になるので、当たらない。
-  // Stryker disable next-line Regex: git は tab を含む名前を引用符で囲むので、^ の有無で当たる行は同じ
   const tracked = [...numstat.matchAll(/^(\d+)\t(\d+)\t/gm)].reduce(
     (sum, [, added, deleted]) => sum + Number(added) + Number(deleted),
     0,

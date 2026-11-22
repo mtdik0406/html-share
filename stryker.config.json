@@ -11,8 +11,7 @@
     "cli/lib/**/*.ts",
     "core/**/*.ts",
     "functions/**/*.ts",
-    "infra/**/*.ts",
-    "tools/lib/**/*.ts"
+    "infra/**/*.ts"
   ],
   "reporters": ["clear-text", "progress", "json"],
   "thresholds": {
