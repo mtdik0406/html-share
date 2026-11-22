@@ -200,6 +200,10 @@ describe("管理画面", () => {
       for (const name of ["frame-ancestors", "base-uri", "form-action"]) {
         assert.deepEqual(csp.get(name), ["'none'"], name);
       }
+      // 画面が動くのに要る分は許す：自分のスクリプトとスタイルを読み、API を fetch で呼ぶ。
+      for (const name of ["script-src", "style-src", "connect-src"]) {
+        assert.deepEqual(csp.get(name), ["'self'"], name);
+      }
     });
 
     it("閲覧用と同じく、漏らさず・保存させず・埋め込ませず・端末の機能を使わせない", () => {
