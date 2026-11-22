@@ -88,6 +88,13 @@ describe("管理画面", () => {
       assert.deepEqual(refsIn(b.get("/auth/*").TrustedKeyGroups), []);
     });
 
+    it("画面は、ページとは別のバケットから配る", () => {
+      const origin = originOf(behaviors().get("default"));
+      const buckets = refsIn(origin.DomainName);
+      assert.equal(buckets.length, 1);
+      assert.ok((buckets[0] as string).startsWith("AdminUiBucket"), buckets[0]);
+    });
+
     it("POST を受けるのは URL の発行の API だけで、HTTP は受け付けない", () => {
       for (const [path, behavior] of behaviors()) {
         assert.ok(

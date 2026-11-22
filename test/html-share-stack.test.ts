@@ -124,6 +124,31 @@ describe("HtmlShareStack", () => {
     }
   });
 
+  it("ページのバケットを読めるのは、閲覧用の Distribution だけ（sandbox のない管理画面には読ませない）", () => {
+    const contentBucketIds = Object.keys(resourcesOf("AWS::S3::Bucket")).filter((id) =>
+      id.startsWith("ContentBucket"),
+    );
+    assert.equal(contentBucketIds.length, 1);
+    const policies = Object.values(resourcesOf("AWS::S3::BucketPolicy")).filter((p) =>
+      refsIn(p.Properties.Bucket).includes(contentBucketIds[0] as string),
+    );
+    const allows = policies
+      .flatMap((p) => p.Properties.PolicyDocument.Statement)
+      .filter(
+        (s: Json) =>
+          s.Effect === "Allow" &&
+          asArray(s.Principal?.Service).includes("cloudfront.amazonaws.com"),
+      );
+    assert.ok(allows.length > 0);
+    const [[viewerId]] = viewerDistributions();
+    for (const s of allows) {
+      const refs = refsIn(s.Condition?.StringEquals?.["AWS:SourceArn"]).filter(
+        (r) => !r.startsWith("AWS::"),
+      );
+      assert.deepEqual(refs, [viewerId]);
+    }
+  });
+
   it("CloudFront に許すのはページの読み取りだけ（書き換えも削除もさせない）", () => {
     const cloudFrontAllows = bucketPolicyStatements().filter(
       (s) =>
