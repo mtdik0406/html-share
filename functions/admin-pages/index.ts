@@ -3,10 +3,10 @@ import { S3Client } from "@aws-sdk/client-s3";
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { ADMIN_FUNCTION_ENV } from "../../core/names.js";
 import { PAGES_PREFIX } from "../../core/page.js";
-import { listRemote } from "../../core/s3-sync.js";
-import { loadSigningKey } from "../../core/signing-key.js";
+import { listRemote } from "../../core/remote-pages.js";
 import { env } from "../env.js";
 import { createSignHandler } from "../sign-request.js";
+import { loadSigningKey } from "../signing-key.js";
 import { pageEntries } from "./list-pages.js";
 import { createPagesHandler } from "./pages-request.js";
 

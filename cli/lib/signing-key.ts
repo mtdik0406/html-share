@@ -8,11 +8,13 @@ import {
   type DeleteParametersCommandOutput,
   DescribeParametersCommand,
   type DescribeParametersCommandOutput,
-  GetParameterCommand,
-  type GetParameterCommandOutput,
   PutParameterCommand,
 } from "@aws-sdk/client-ssm";
-import { generationOfParameterName, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
+import {
+  generationOfParameterName,
+  SIGN_FUNCTION_ENV,
+  signingKeyParameterName,
+} from "../../core/names.js";
 
 /** SSMClient の send だけを使う。テストで偽物に差し替えるため。 */
 export interface SsmSender {
@@ -53,16 +55,6 @@ export async function storeSigningKey(ssm: SsmSender, input: StoreSigningKeyInpu
       Overwrite: false,
     }),
   );
-}
-
-export async function loadSigningKey(ssm: SsmSender, parameterName: string): Promise<string> {
-  const res = (await ssm.send(
-    new GetParameterCommand({ Name: parameterName, WithDecryption: true }),
-  )) as GetParameterCommandOutput;
-  // Stryker disable next-line OptionalChaining: Parameter がなくても TypeError で拒むので、振る舞いは同じ
-  const value = res.Parameter?.Value;
-  if (!value) throw new Error(`パラメータ ${parameterName} に値がありません`);
-  return value;
 }
 
 /** 消すパラメータを選ぶ。all でなければ、今の世代より前の世代だけを選び、今の鍵と、先に置いた次の世代の鍵は残す。 */

@@ -4,40 +4,27 @@ import { GetFunctionConfigurationCommand } from "@aws-sdk/client-lambda";
 import {
   DeleteParametersCommand,
   DescribeParametersCommand,
-  GetParameterCommand,
   PutParameterCommand,
 } from "@aws-sdk/client-ssm";
-import { SIGN_FUNCTION_ENV, signingKeyParameterName } from "../../core/names.js";
 import {
   deleteSigningKeys,
   listSigningKeys,
-  loadSigningKey,
   readDeployedKeyGeneration,
   runKeysDelete,
-  type SsmSender,
   selectKeysToDelete,
   storeSigningKey,
-} from "../../core/signing-key.js";
-import { generateTestKeyPair } from "../helpers/keys.js";
+} from "../../../cli/lib/signing-key.js";
+import { SIGN_FUNCTION_ENV, signingKeyParameterName } from "../../../core/names.js";
+import { fakeSender } from "../../helpers/fake-sender.js";
+import { generateTestKeyPair } from "../../helpers/keys.js";
 
 const NAME = "/html-share/test-key";
-
-function fakeSsm(respond: (command: object) => unknown = () => ({})) {
-  const sent: object[] = [];
-  const ssm: SsmSender = {
-    async send(command) {
-      sent.push(command);
-      return respond(command);
-    },
-  };
-  return { ssm, sent };
-}
 
 const pair = generateTestKeyPair();
 
 describe("storeSigningKey", () => {
   it("秘密鍵を SecureString として、既存の値を上書きせずに置く", async () => {
-    const { ssm, sent } = fakeSsm();
+    const { client: ssm, sent } = fakeSender();
     await storeSigningKey(ssm, {
       parameterName: NAME,
       privateKeyPem: pair.privateKey,
@@ -56,7 +43,7 @@ describe("storeSigningKey", () => {
   });
 
   it("秘密鍵が公開鍵と対でなければ、送らずに失敗する", async () => {
-    const { ssm, sent } = fakeSsm();
+    const { client: ssm, sent } = fakeSender();
     const other = generateTestKeyPair();
     await assert.rejects(
       storeSigningKey(ssm, {
@@ -69,7 +56,7 @@ describe("storeSigningKey", () => {
   });
 
   it("秘密鍵として読めない値は、送らずに失敗する", async () => {
-    const { ssm, sent } = fakeSsm();
+    const { client: ssm, sent } = fakeSender();
     for (const privateKeyPem of ["", pair.publicKey]) {
       await assert.rejects(
         storeSigningKey(ssm, {
@@ -80,23 +67,6 @@ describe("storeSigningKey", () => {
       );
     }
     assert.equal(sent.length, 0);
-  });
-});
-
-describe("loadSigningKey", () => {
-  it("復号を指定して読み、値を返す", async () => {
-    const { ssm, sent } = fakeSsm(() => ({ Parameter: { Value: pair.privateKey } }));
-    assert.equal(await loadSigningKey(ssm, NAME), pair.privateKey);
-    const [command] = sent;
-    assert.ok(command instanceof GetParameterCommand);
-    assert.deepEqual(command.input, { Name: NAME, WithDecryption: true });
-  });
-
-  it("値がなければ失敗する", async () => {
-    for (const response of [{}, { Parameter: {} }, { Parameter: { Value: "" } }]) {
-      const { ssm } = fakeSsm(() => response);
-      await assert.rejects(loadSigningKey(ssm, NAME));
-    }
   });
 });
 
@@ -134,7 +104,7 @@ describe("listSigningKeys", () => {
       { Parameters: [{ Name: gen(2) }, {}], NextToken: "u" },
       {},
     ];
-    const { ssm, sent } = fakeSsm(() => pages.shift());
+    const { client: ssm, sent } = fakeSender(() => pages.shift());
     assert.deepEqual(await listSigningKeys(ssm), [gen(1), gen(2)]);
     assert.equal(sent.length, 3);
     const [first, second] = sent;
@@ -150,7 +120,7 @@ describe("listSigningKeys", () => {
 describe("deleteSigningKeys", () => {
   it("1 回に 10 個ずつ消す", async () => {
     // 消せた回の応答には、InvalidParameters がないことがある。
-    const { ssm, sent } = fakeSsm(() => ({}));
+    const { client: ssm, sent } = fakeSender(() => ({}));
     const names = Array.from({ length: 11 }, (_, i) => gen(i + 1));
     await deleteSigningKeys(ssm, names);
     assert.deepEqual(
@@ -161,13 +131,13 @@ describe("deleteSigningKeys", () => {
   });
 
   it("消す名前がなければ、何も送らない", async () => {
-    const { ssm, sent } = fakeSsm();
+    const { client: ssm, sent } = fakeSender();
     await deleteSigningKeys(ssm, []);
     assert.equal(sent.length, 0);
   });
 
   it("消せなかった名前があれば失敗する", async () => {
-    const { ssm } = fakeSsm(() => ({ InvalidParameters: [gen(2)] }));
+    const { client: ssm } = fakeSender(() => ({ InvalidParameters: [gen(2)] }));
     await assert.rejects(deleteSigningKeys(ssm, [gen(1), gen(2)]));
   });
 });
@@ -175,7 +145,7 @@ describe("deleteSigningKeys", () => {
 describe("runKeysDelete", () => {
   const listed = { Parameters: [{ Name: gen(1) }, { Name: gen(2) }, { Name: gen(3) }] };
   function setup(currentGeneration: number, deployed: number | undefined) {
-    const { ssm, sent } = fakeSsm((command) =>
+    const { client: ssm, sent } = fakeSender((command) =>
       command instanceof DescribeParametersCommand ? listed : {},
     );
     const deletes = () => sent.filter((c) => c instanceof DeleteParametersCommand);

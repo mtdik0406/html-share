@@ -1,5 +1,5 @@
 import { type AdminConfig, parseAdminConfig } from "../../core/admin-config.js";
-import { loadSigningKey, type SsmSender } from "../../core/signing-key.js";
+import { loadSigningKey, type SsmSender } from "../signing-key.js";
 
 type Fetch = (input: string, init?: RequestInit) => Promise<Response>;
 

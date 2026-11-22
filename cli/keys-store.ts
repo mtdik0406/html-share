@@ -3,8 +3,8 @@ import { parseArgs } from "node:util";
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { SIGNING_KEY_GENERATION, signingKeyParameterName } from "../core/names.js";
 import { PRIVATE_KEY_PATH, PUBLIC_KEY_PATH } from "../core/paths.js";
-import { storeSigningKey } from "../core/signing-key.js";
 import { runCli } from "./lib/cli.js";
+import { storeSigningKey } from "./lib/signing-key.js";
 
 const parameterName = signingKeyParameterName(SIGNING_KEY_GENERATION);
 

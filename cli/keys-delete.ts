@@ -3,8 +3,8 @@ import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { LambdaClient } from "@aws-sdk/client-lambda";
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { SIGNING_KEY_GENERATION } from "../core/names.js";
-import { readDeployedKeyGeneration, runKeysDelete } from "../core/signing-key.js";
 import { runCli } from "./lib/cli.js";
+import { readDeployedKeyGeneration, runKeysDelete } from "./lib/signing-key.js";
 import { readStackOutputs } from "./lib/stack-outputs.js";
 
 // 消した鍵は戻せない。--all は、スタックを片付けたあとだけに使う。

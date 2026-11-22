@@ -9,7 +9,7 @@ import type { SyncConfig } from "../../../cli/lib/config.js";
 import { embedPage } from "../../../cli/lib/embed.js";
 import { runSync, type SyncDeps } from "../../../cli/lib/sync-run.js";
 import { pageKey } from "../../../core/page.js";
-import type { S3Sender } from "../../../core/s3-sync.js";
+import type { S3Sender } from "../../../core/remote-pages.js";
 
 let base: string;
 let root: string;

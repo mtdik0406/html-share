@@ -1,9 +1,9 @@
 import { parseArgs } from "node:util";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { LambdaClient } from "@aws-sdk/client-lambda";
-import { parseLifetimeMs } from "../core/lifetime.js";
 import { assertSlug } from "../core/page.js";
 import { runCli } from "./lib/cli.js";
+import { parseLifetimeMs } from "./lib/lifetime-options.js";
 import { requestSignedUrl } from "./lib/remote-sign.js";
 import { readStackOutputs } from "./lib/stack-outputs.js";
 
