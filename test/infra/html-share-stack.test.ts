@@ -115,6 +115,30 @@ describe("HtmlShareStack", () => {
     assert.deepEqual(publicAllows, []);
   });
 
+  it("バケットポリシーが許可を与えるのは、CloudFront のサービスと、このスタックのロールだけ（ほかのサービスやアカウントには与えない）", () => {
+    // バケットを消すときに中身を空にする CDK のロール（autoDeleteObjects）も、バケットポリシーで許される。
+    const roleIds = Object.keys(resourcesOf("AWS::IAM::Role"));
+    const allows = bucketPolicyStatements().filter((s) => s.Effect === "Allow");
+    assert.ok(allows.some(allowsCloudFront));
+    for (const s of allows) {
+      const principal = JSON.stringify(s.Principal);
+      if (allowsCloudFront(s)) {
+        assert.deepEqual(Object.keys(s.Principal), ["Service"], principal);
+        assert.deepEqual(asArray(s.Principal.Service), ["cloudfront.amazonaws.com"], principal);
+        continue;
+      }
+      assert.deepEqual(Object.keys(s.Principal ?? {}), ["AWS"], principal);
+      // 文字列（"*" やほかのアカウントの ARN）でなく、このスタックのロールを指す参照だけを許す。
+      const targets = asArray<Json>(s.Principal.AWS);
+      assert.ok(targets.length > 0, principal);
+      for (const target of targets) {
+        const refs = refsIn(target);
+        assert.equal(refs.length, 1, principal);
+        assert.ok(roleIds.includes(refs[0] as string), principal);
+      }
+    }
+  });
+
   it("CloudFront への許可は、このスタックの Distribution に限られ、ページを読める", () => {
     const distributionIds = Object.keys(resourcesOf("AWS::CloudFront::Distribution"));
     const cloudFrontAllows = bucketPolicyStatements().filter(allowsCloudFront);
