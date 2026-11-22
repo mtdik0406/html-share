@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { changedFiles, filesMatching, parseScopeArgs } from "./changed-files.js";
 import { mutationPlan } from "./lib/review-scope.js";
 
-// 手元で変えた所だけを流す。全体は CI が毎回流す（ADR 11）。
+// 手元で変えた所だけを流す。全体は CI が毎回流す（ADR 11・18）。
 // incremental はここでだけ使う。CI の全体の実行が、残っていた結果を使い回さないため。
 const { base, all } = parseScopeArgs({ all: true });
 const { mutate } = JSON.parse(readFileSync("stryker.config.json", "utf8")) as { mutate: string[] };
@@ -13,6 +13,7 @@ const plan = all
   : mutationPlan(
       [...new Set([...branchDiff, ...uncommitted, ...untracked])],
       filesMatching(mutate),
+      filesMatching(["**/*.ts"]),
     );
 
 const stryker = (...args: string[]) =>

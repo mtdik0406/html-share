@@ -166,9 +166,11 @@ describe("mutationPlan", () => {
     "infra/html-share-stack.ts",
     "functions/sign/sign-request.ts",
     "cli/lib/embed.ts",
-    "tools/lib/review-scope.ts",
+    "core/page.ts",
   ];
-  const files = (changed: string[], from = sources) => mutationPlan(changed, from);
+  // 変異の対象の外にあるソース（tools/ と CLI の入口）も含めた、リポジトリの .ts。
+  const codeFiles = [...sources, "tools/lib/review-scope.ts", "cli/sync.ts"];
+  const files = (changed: string[], from = sources) => mutationPlan(changed, from, codeFiles);
 
   it("変えたソースのうち、変異の対象のものだけを選ぶ", () => {
     assert.deepEqual(files(["cli/lib/embed.ts", "cli/sync.ts", "README.md", "infra/gone.ts"]), {
@@ -190,14 +192,22 @@ describe("mutationPlan", () => {
   it("同じファイルは 1 回だけ、並びをそろえて返す", () => {
     assert.deepEqual(
       files(
-        [
-          "tools/lib/review-scope.ts",
-          "test/tools/lib/review-scope.test.ts",
-          "infra/html-share-stack.ts",
-        ],
+        ["core/page.ts", "test/core/page.test.ts", "infra/html-share-stack.ts"],
         [...sources].reverse(),
       ),
-      { all: false, files: ["infra/html-share-stack.ts", "tools/lib/review-scope.ts"] },
+      { all: false, files: ["core/page.ts", "infra/html-share-stack.ts"] },
+    );
+  });
+
+  it("変異の対象の外にあるソースと、そのテストを変えても、全体にせず、選ばない", () => {
+    assert.deepEqual(
+      files([
+        "tools/lib/review-scope.ts",
+        "test/tools/lib/review-scope.test.ts",
+        "test/cli/sync.test.ts",
+        "cli/lib/embed.ts",
+      ]),
+      { all: false, files: ["cli/lib/embed.ts"] },
     );
   });
 

@@ -117,19 +117,24 @@ export type MutationPlan = { all: true } | { all: false; files: string[] };
 /**
  * 変異テストを流す範囲。変えたソースと、変えたテストに対応するソース（test/<パス>.test.ts は <パス>.ts のテスト、ADR 14）。
  * 対応するソースのないテスト（helper を含む）や依存・設定を変えたら、どのソースに効くか分からないので全体にする。
- * sources は、変異の対象のファイルの一覧（stryker.config.json の mutate に当たるもの）。
+ * 対応するソースが変異の対象の外（tools/ や CLI の入口）にあるテストは、流すものがないので選ばない（ADR 18）。
+ * sources は、変異の対象のファイルの一覧（stryker.config.json の mutate に当たるもの）。codeFiles は、リポジトリの .ts。
  */
-export function mutationPlan(changed: readonly string[], sources: readonly string[]): MutationPlan {
+export function mutationPlan(
+  changed: readonly string[],
+  sources: readonly string[],
+  codeFiles: readonly string[],
+): MutationPlan {
   const sourceSet = new Set(sources);
+  const codeSet = new Set(codeFiles);
   const tested = new Set<string>();
   for (const file of changed) {
     if (AFFECTS_ALL_MUTANTS.has(file)) return { all: true };
     if (!file.startsWith("test/")) continue;
-    // Stryker disable next-line Regex: test/ で始まることは上で確かめているので、^ の有無で結果は同じ
     const path = /^test\/(.+)\.test\.ts$/.exec(file)?.[1];
-    // Stryker disable next-line ConditionalExpression: path がないと "undefined.ts" を探して見つからず、結果は同じ
-    if (path === undefined || !sourceSet.has(`${path}.ts`)) return { all: true };
-    tested.add(`${path}.ts`);
+    const source = `${path}.ts`;
+    if (sourceSet.has(source)) tested.add(source);
+    else if (!codeSet.has(source)) return { all: true };
   }
   const files = sources.filter((source) => changed.includes(source) || tested.has(source)).sort();
   return { all: false, files };
