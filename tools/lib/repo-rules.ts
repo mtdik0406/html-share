@@ -108,7 +108,7 @@ const PRIVATE_KEY_READERS = new Set([
   "core/paths.ts",
   "cli/lib/keygen.ts",
   "cli/keys-store.ts",
-  "test/keygen.test.ts",
+  "test/cli/lib/keygen.test.ts",
 ]);
 
 export function findPrivateKeyAccess(path: string, text: string): Finding[] {

@@ -1,4 +1,4 @@
-// Stryker disable all: バンドルを読み込むテスト（test/function-bundle.test.ts）が確かめるが、Stryker はバンドルの中の実行をこのファイルの網羅に数えられない
+// Stryker disable all: バンドルを読み込むテスト（test/infra/function-bundle.test.ts）が確かめるが、Stryker はバンドルの中の実行をこのファイルの網羅に数えられない
 import { SSMClient } from "@aws-sdk/client-ssm";
 import { ADMIN_FUNCTION_ENV } from "../../core/names.js";
 import { loadSigningKey } from "../../core/signing-key.js";

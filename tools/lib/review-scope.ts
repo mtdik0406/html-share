@@ -109,26 +109,23 @@ const AFFECTS_ALL_MUTANTS = new Set([
 export type MutationPlan = { all: true } | { all: false; files: string[] };
 
 /**
- * 変異テストを流す範囲。変えたソースと、変えたテストと同じ名前のソース。
- * 名前の合うソースのないテスト（helper を含む）や依存・設定を変えたら、どのソースに効くか分からないので全体にする。
+ * 変異テストを流す範囲。変えたソースと、変えたテストに対応するソース（test/<パス>.test.ts は <パス>.ts のテスト、ADR 14）。
+ * 対応するソースのないテスト（helper を含む）や依存・設定を変えたら、どのソースに効くか分からないので全体にする。
  * sources は、変異の対象のファイルの一覧（stryker.config.json の mutate に当たるもの）。
  */
 export function mutationPlan(changed: readonly string[], sources: readonly string[]): MutationPlan {
-  const baseName = (path: string) => path.slice(path.lastIndexOf("/") + 1);
-  const sourceNames = new Set(sources.map(baseName));
-  const testedNames = new Set<string>();
+  const sourceSet = new Set(sources);
+  const tested = new Set<string>();
   for (const file of changed) {
     if (AFFECTS_ALL_MUTANTS.has(file)) return { all: true };
     if (!file.startsWith("test/")) continue;
     // Stryker disable next-line Regex: test/ で始まることは上で確かめているので、^ の有無で結果は同じ
-    const name = /^test\/([^/]+)\.test\.ts$/.exec(file)?.[1];
-    // Stryker disable next-line ConditionalExpression: name がないと "undefined.ts" を探して見つからず、結果は同じ
-    if (name === undefined || !sourceNames.has(`${name}.ts`)) return { all: true };
-    testedNames.add(`${name}.ts`);
+    const path = /^test\/(.+)\.test\.ts$/.exec(file)?.[1];
+    // Stryker disable next-line ConditionalExpression: path がないと "undefined.ts" を探して見つからず、結果は同じ
+    if (path === undefined || !sourceSet.has(`${path}.ts`)) return { all: true };
+    tested.add(`${path}.ts`);
   }
-  const files = sources
-    .filter((source) => changed.includes(source) || testedNames.has(baseName(source)))
-    .sort();
+  const files = sources.filter((source) => changed.includes(source) || tested.has(source)).sort();
   return { all: false, files };
 }
 

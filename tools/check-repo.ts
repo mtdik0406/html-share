@@ -10,7 +10,10 @@ import {
 } from "./lib/repo-rules.js";
 
 // 規則そのものと、そのテストの例は、見つける対象の文字列を含む。
-const EXEMPT_FROM_TEXT_RULES = new Set(["tools/lib/repo-rules.ts", "test/repo-rules.test.ts"]);
+const EXEMPT_FROM_TEXT_RULES = new Set([
+  "tools/lib/repo-rules.ts",
+  "test/tools/lib/repo-rules.test.ts",
+]);
 
 const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" });
 
