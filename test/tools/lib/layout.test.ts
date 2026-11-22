@@ -92,6 +92,7 @@ describe("findLayoutGaps", () => {
       { dir: "admin-ui", check: "tsconfig" },
     ]);
     assert.deepEqual(gaps({ typecheckScript: "tsc --noEmit --project admin-ui" }), []);
+    assert.deepEqual(gaps({ typecheckScript: "tsc --noEmit -p  admin-ui" }), []);
   });
 
   it("knip と jscpd の対象にないディレクトリを見つける（test を含む）", () => {

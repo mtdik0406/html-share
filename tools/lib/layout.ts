@@ -76,11 +76,10 @@ export function findLayoutGaps(input: LayoutInput): LayoutGap[] {
   // Stryker disable next-line Regex: 空白が続くと空の語が増えるだけで、ディレクトリの名前の有無は同じ
   const duplicate = new Set(input.duplicateScript.split(/\s+/));
   // 自分の tsconfig.json は、typecheck が -p で渡したときだけ使われる。
-  // Stryker disable next-line Regex: 空白が続くと空の語が増えるだけで、-p の次の語は同じ
   const typecheck = input.typecheckScript.split(/\s+/);
   const projects = new Set(
-    // Stryker disable next-line ConditionalExpression,EqualityOperator: 先頭の語の前は undefined で、-p にも --project にも当たらない
-    typecheck.filter((_, i) => i > 0 && ["-p", "--project"].includes(typecheck[i - 1] as string)),
+    // 先頭の語の前は undefined で、-p にも --project にも当たらない。
+    typecheck.filter((_, i) => ["-p", "--project"].includes(typecheck[i - 1] as string)),
   );
   for (const dir of CODE_DIRS) {
     const sourceDir = dir !== "test" && !ENTRY_ONLY_DIRS.has(dir);
