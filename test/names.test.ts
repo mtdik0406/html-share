@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ADMIN_PATHS, generationOfParameterName, signingKeyParameterName } from "../lib/names.js";
+import { ADMIN_PATHS, generationOfParameterName, signingKeyParameterName } from "../core/names.js";
 
 describe("signingKeyParameterName", () => {
   it("1 世代目は、世代を分ける前と同じ名前", () => {

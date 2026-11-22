@@ -1,7 +1,7 @@
 // S3 の一覧から、管理画面に出すページを選ぶ。sync が置く形のキーだけを、ページとして扱う。
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { pageEntries } from "../lib/admin/list-pages.js";
+import { pageEntries } from "../functions/admin-pages/list-pages.js";
 
 describe("pageEntries", () => {
   it("ページのキーだけを、slug と更新時刻にして返す", () => {

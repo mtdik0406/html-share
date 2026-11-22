@@ -12,11 +12,7 @@ import {
   type GetParameterCommandOutput,
   PutParameterCommand,
 } from "@aws-sdk/client-ssm";
-import {
-  generationOfParameterName,
-  SIGN_FUNCTION_ENV,
-  signingKeyParameterName,
-} from "../../lib/names.js";
+import { generationOfParameterName, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
 
 /** SSMClient の send だけを使う。テストで偽物に差し替えるため。 */
 export interface SsmSender {

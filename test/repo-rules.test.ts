@@ -126,17 +126,17 @@ describe("findPrivateKeyAccess", () => {
 
   it("決めた場所の外のコードが、秘密鍵の場所を参照していたら見つける", () => {
     assert.deepEqual(
-      findPrivateKeyAccess("scripts/sign.ts", code).map((f) => f.line),
+      findPrivateKeyAccess("cli/sign.ts", code).map((f) => f.line),
       [1, 2],
     );
-    assert.equal(findPrivateKeyAccess("lib/sign-function/index.ts", "PRIVATE_KEY_FILE").length, 1);
+    assert.equal(findPrivateKeyAccess("functions/sign/index.ts", "PRIVATE_KEY_FILE").length, 1);
   });
 
   it("鍵を作る所と SSM に置く所は、参照してよい", () => {
     for (const path of [
-      "scripts/lib/paths.ts",
-      "scripts/lib/keygen.ts",
-      "scripts/keys-store.ts",
+      "core/paths.ts",
+      "cli/lib/keygen.ts",
+      "cli/keys-store.ts",
       "test/keygen.test.ts",
     ]) {
       assert.deepEqual(findPrivateKeyAccess(path, code), []);
@@ -145,6 +145,6 @@ describe("findPrivateKeyAccess", () => {
 
   it("コードでないファイルと、名前の一部が同じだけの識別子は見ない", () => {
     assert.deepEqual(findPrivateKeyAccess("README.md", code), []);
-    assert.deepEqual(findPrivateKeyAccess("scripts/sign.ts", "MY_PRIVATE_KEY_PATHS"), []);
+    assert.deepEqual(findPrivateKeyAccess("cli/sign.ts", "MY_PRIVATE_KEY_PATHS"), []);
   });
 });

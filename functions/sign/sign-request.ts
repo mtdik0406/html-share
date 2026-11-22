@@ -1,17 +1,13 @@
-import { validateLifetimeMs } from "../../scripts/lib/lifetime.js";
-import { assertSlug } from "../../scripts/lib/page.js";
-import { signPageUrl } from "../../scripts/lib/signed-url.js";
+import type { SignResult } from "../../core/api-types.js";
+import { validateLifetimeMs } from "../../core/lifetime.js";
+import { assertSlug } from "../../core/page.js";
+import { signPageUrl } from "../../core/signed-url.js";
 
 export interface SignHandlerDeps {
   distributionDomainName: string;
   keyPairId: string;
   loadPrivateKey: () => Promise<string>;
   now: () => Date;
-}
-
-export interface SignResult {
-  url: string;
-  expiresAt: string;
 }
 
 interface SignRequest {

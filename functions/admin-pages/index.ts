@@ -1,14 +1,14 @@
 // Stryker disable all: バンドルを読み込むテスト（test/function-bundle.test.ts）が確かめるが、Stryker はバンドルの中の実行をこのファイルの網羅に数えられない
 import { S3Client } from "@aws-sdk/client-s3";
 import { SSMClient } from "@aws-sdk/client-ssm";
-import { PAGES_PREFIX } from "../../../scripts/lib/page.js";
-import { listRemote } from "../../../scripts/lib/s3-sync.js";
-import { loadSigningKey } from "../../../scripts/lib/signing-key.js";
-import { env } from "../../env.js";
-import { ADMIN_FUNCTION_ENV } from "../../names.js";
-import { createSignHandler } from "../../sign-function/sign-request.js";
-import { pageEntries } from "../list-pages.js";
-import { createPagesHandler } from "../pages-request.js";
+import { ADMIN_FUNCTION_ENV } from "../../core/names.js";
+import { PAGES_PREFIX } from "../../core/page.js";
+import { listRemote } from "../../core/s3-sync.js";
+import { loadSigningKey } from "../../core/signing-key.js";
+import { env } from "../env.js";
+import { createSignHandler } from "../sign/sign-request.js";
+import { pageEntries } from "./list-pages.js";
+import { createPagesHandler } from "./pages-request.js";
 
 const s3 = new S3Client({});
 const ssm = new SSMClient({});

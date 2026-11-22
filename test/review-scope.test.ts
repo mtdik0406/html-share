@@ -19,7 +19,16 @@ describe("reviewScope", () => {
   });
 
   it("差分がなければ、コードの全体にする", () => {
-    assert.deepEqual(reviewScope([], [], []), ["scripts/", "lib/", "bin/", "tools/", "test/"]);
+    assert.deepEqual(reviewScope([], [], []), [
+      "core/",
+      "cli/",
+      "functions/",
+      "infra/",
+      "admin-ui/",
+      "bin/",
+      "tools/",
+      "test/",
+    ]);
   });
 });
 

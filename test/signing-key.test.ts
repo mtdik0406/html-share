@@ -7,7 +7,7 @@ import {
   GetParameterCommand,
   PutParameterCommand,
 } from "@aws-sdk/client-ssm";
-import { SIGN_FUNCTION_ENV, signingKeyParameterName } from "../lib/names.js";
+import { SIGN_FUNCTION_ENV, signingKeyParameterName } from "../core/names.js";
 import {
   deleteSigningKeys,
   listSigningKeys,
@@ -17,7 +17,7 @@ import {
   type SsmSender,
   selectKeysToDelete,
   storeSigningKey,
-} from "../scripts/lib/signing-key.js";
+} from "../core/signing-key.js";
 import { generateTestKeyPair } from "./helpers/keys.js";
 
 const NAME = "/html-share/test-key";

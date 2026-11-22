@@ -1,13 +1,18 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
+import { PAGES_PREFIX, pageKey, slugOfKey } from "../../core/page.js";
+import { applyPlan, listRemote, type S3Sender } from "../../core/s3-sync.js";
+import {
+  assertSafeToApply,
+  type LocalObject,
+  planSync,
+  type SyncPlan,
+} from "../../core/sync-plan.js";
 import type { SyncConfig } from "./config.js";
 import { embedPage } from "./embed.js";
 import { acquireLock } from "./lock.js";
-import { PAGES_PREFIX, pageKey, slugOfKey } from "./page.js";
 import { assertNoRecentReuse, parseRetired, type RetiredSlugs, recordRetired } from "./retired.js";
-import { applyPlan, listRemote, type S3Sender } from "./s3-sync.js";
-import { assertSafeToApply, type LocalObject, planSync, type SyncPlan } from "./sync-plan.js";
 
 export interface SyncOptions {
   dryRun: boolean;

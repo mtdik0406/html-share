@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import { App } from "aws-cdk-lib";
-import { cognitoDomainPrefix as cognitoDomainPrefixOf } from "../lib/cognito-prefix.js";
-import { HtmlShareStack } from "../lib/html-share-stack.js";
-import { SIGNING_KEY_GENERATION, STACK_NAME } from "../lib/names.js";
-import { PUBLIC_KEY_PATH } from "../scripts/lib/paths.js";
+import { SIGNING_KEY_GENERATION, STACK_NAME } from "../core/names.js";
+import { PUBLIC_KEY_PATH } from "../core/paths.js";
+import { cognitoDomainPrefix as cognitoDomainPrefixOf } from "../infra/cognito-prefix.js";
+import { HtmlShareStack } from "../infra/html-share-stack.js";
 
 // 秘密鍵はここで読まない。CDK に渡した値はテンプレートに入り、AWS に送られるため。
 if (!existsSync(PUBLIC_KEY_PATH)) {

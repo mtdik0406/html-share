@@ -1,0 +1,9 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    // ブラウザで動くので、DOM の型を使い、Node の型を使わない（ADR 14）。
+    "lib": ["ES2023", "DOM"],
+    "types": []
+  },
+  "include": ["./**/*.ts"]
+}

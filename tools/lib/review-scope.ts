@@ -1,5 +1,5 @@
 /** 差分がないときに見る範囲。 */
-export const CODE_DIRS = ["scripts", "lib", "bin", "tools", "test"];
+export const CODE_DIRS = ["core", "cli", "functions", "infra", "admin-ui", "bin", "tools", "test"];
 const WHOLE_CODEBASE = CODE_DIRS.map((dir) => `${dir}/`);
 
 /**

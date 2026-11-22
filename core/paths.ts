@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 // このファイルからの相対で決めるので、どのディレクトリで実行しても同じ場所を指す。
-export const REPO_ROOT = fileURLToPath(new URL("../../", import.meta.url));
+export const REPO_ROOT = fileURLToPath(new URL("../", import.meta.url));
 
 export const PRIVATE_KEY_FILE = "private.pem";
 export const PUBLIC_KEY_FILE = "public.pem";

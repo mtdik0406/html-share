@@ -1,9 +1,12 @@
 // 管理画面のページの API を、S3 と署名を差し替えて確かめる。CloudFront を通っても、要求の中身は信じない。
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { UrlRequest } from "../lib/admin/http.js";
-import { createPagesHandler, type PagesHandlerDeps } from "../lib/admin/pages-request.js";
-import { DAY_MS, MAX_DAYS } from "../scripts/lib/lifetime.js";
+import { DAY_MS, MAX_DAYS } from "../core/lifetime.js";
+import {
+  createPagesHandler,
+  type PagesHandlerDeps,
+} from "../functions/admin-pages/pages-request.js";
+import type { UrlRequest } from "../functions/http.js";
 
 const JSON_HEADERS = { "content-type": "application/json" };
 

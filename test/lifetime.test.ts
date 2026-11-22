@@ -1,11 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  DEFAULT_DAYS,
-  MAX_DAYS,
-  parseLifetimeMs,
-  validateLifetimeMs,
-} from "../scripts/lib/lifetime.js";
+import { DEFAULT_DAYS, MAX_DAYS, parseLifetimeMs, validateLifetimeMs } from "../core/lifetime.js";
 
 const MINUTE = 60_000;
 const DAY = 86_400_000;

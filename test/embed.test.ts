@@ -12,12 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { type DefaultTreeAdapterTypes, parse } from "parse5";
-import {
-  classifyReference,
-  type EmbedLimits,
-  embedPage,
-  parseSrcset,
-} from "../scripts/lib/embed.js";
+import { classifyReference, type EmbedLimits, embedPage, parseSrcset } from "../cli/lib/embed.js";
 
 type Element = DefaultTreeAdapterTypes.Element;
 

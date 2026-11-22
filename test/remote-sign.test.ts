@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { InvokeCommand } from "@aws-sdk/client-lambda";
-import { type LambdaSender, requestSignedUrl } from "../scripts/lib/remote-sign.js";
+import { type LambdaSender, requestSignedUrl } from "../cli/lib/remote-sign.js";
 
 const FUNCTION = "html-share-sign";
 const REQUEST = { slug: "page-a", lifetimeMs: 60_000 };

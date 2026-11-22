@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertSafeToApply, planSync, type SyncPlan } from "../scripts/lib/sync-plan.js";
+import { assertSafeToApply, planSync, type SyncPlan } from "../core/sync-plan.js";
 
 describe("planSync", () => {
   it("新しいキーは add、ETag と MD5 が同じなら unchanged、違えば update、手元に無いキーは remove", () => {

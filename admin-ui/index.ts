@@ -1,7 +1,6 @@
-/// <reference lib="dom" />
 // Stryker disable all: DOM を組み立てる入口で、Node のテストには DOM がない。API を呼ぶ部分は api.ts でテストし、描画はブラウザで確かめる
 // 管理画面の描画。slug や URL は textContent で入れ、HTML として解釈させない。
-import { DEFAULT_DAYS, MAX_DAYS } from "../../scripts/lib/lifetime.js";
+import { DEFAULT_DAYS, MAX_DAYS } from "../core/lifetime.js";
 import { errorView, fetchPages, issueUrl, type PageEntry } from "./api.js";
 
 const $ = <T extends HTMLElement>(selector: string): T => {

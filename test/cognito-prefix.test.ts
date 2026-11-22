@@ -1,7 +1,7 @@
 // prefix はパスキーの RP ID になる。決め方が変わると登録済みのパスキーが使えなくなるので、値を固定する。
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { cognitoDomainPrefix } from "../lib/cognito-prefix.js";
+import { cognitoDomainPrefix } from "../infra/cognito-prefix.js";
 
 describe("cognitoDomainPrefix", () => {
   it("同じアカウントには、いつも同じ値を返す", () => {

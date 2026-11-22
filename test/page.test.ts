@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertSlug, PAGES_PREFIX, pageKey, pageUrl } from "../scripts/lib/page.js";
+import { assertSlug, PAGES_PREFIX, pageKey, pageUrl } from "../core/page.js";
 
 describe("assertSlug", () => {
   for (const [label, slug] of [

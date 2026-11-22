@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
-import { applyPlan, listRemote, type S3Sender } from "../scripts/lib/s3-sync.js";
-import type { SyncPlan } from "../scripts/lib/sync-plan.js";
+import { applyPlan, listRemote, type S3Sender } from "../core/s3-sync.js";
+import type { SyncPlan } from "../core/sync-plan.js";
 
 function fakeS3(respond: (command: object) => unknown = () => ({})) {
   const sent: object[] = [];

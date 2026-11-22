@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertNoRecentReuse, parseRetired, recordRetired } from "../scripts/lib/retired.js";
+import { assertNoRecentReuse, parseRetired, recordRetired } from "../cli/lib/retired.js";
 
 const DAY = 86_400_000;
 const retiredAt = new Date("2026-11-01T00:00:00Z");

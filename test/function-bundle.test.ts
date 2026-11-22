@@ -8,8 +8,8 @@ import { pathToFileURL } from "node:url";
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { AssetManifestArtifact } from "aws-cdk-lib/cx-api";
-import { HtmlShareStack } from "../lib/html-share-stack.js";
-import { ADMIN_FUNCTION_ENV, SIGN_FUNCTION_ENV } from "../lib/names.js";
+import { ADMIN_FUNCTION_ENV, SIGN_FUNCTION_ENV } from "../core/names.js";
+import { HtmlShareStack } from "../infra/html-share-stack.js";
 import { generateTestKeyPair } from "./helpers/keys.js";
 import { TEST_ADMIN } from "./helpers/stack.js";
 

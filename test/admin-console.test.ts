@@ -4,17 +4,17 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { parseAdminConfig } from "../lib/admin/admin-config.js";
-import { adminUiFiles } from "../lib/admin-console.js";
-import { HtmlShareStack } from "../lib/html-share-stack.js";
+import { parseAdminConfig } from "../core/admin-config.js";
 import {
   ADMIN_CONFIG_PARAMETER_NAME,
   ADMIN_FUNCTION_ENV,
   ADMIN_PATHS,
   OUTPUT_KEYS,
   signingKeyParameterName,
-} from "../lib/names.js";
-import { PAGES_PREFIX } from "../scripts/lib/page.js";
+} from "../core/names.js";
+import { PAGES_PREFIX } from "../core/page.js";
+import { adminUiFiles } from "../infra/admin-console.js";
+import { HtmlShareStack } from "../infra/html-share-stack.js";
 import { generateTestKeyPair } from "./helpers/keys.js";
 import { TEST_ADMIN } from "./helpers/stack.js";
 import { asArray, type Json, refsIn, resolveString, roleStatements } from "./helpers/template.js";

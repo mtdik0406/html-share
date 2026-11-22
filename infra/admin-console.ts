@@ -11,9 +11,9 @@ import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
 import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { buildSync } from "esbuild";
-import { PAGES_PREFIX } from "../scripts/lib/page.js";
-import type { AdminConfig } from "./admin/admin-config.js";
-import { ADMIN_CONFIG_PARAMETER_NAME, ADMIN_FUNCTION_ENV, ADMIN_PATHS } from "./names.js";
+import type { AdminConfig } from "../core/admin-config.js";
+import { ADMIN_CONFIG_PARAMETER_NAME, ADMIN_FUNCTION_ENV, ADMIN_PATHS } from "../core/names.js";
+import { PAGES_PREFIX } from "../core/page.js";
 import { nodeFunction, parameterArn } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
 
@@ -31,7 +31,7 @@ export interface AdminConsoleProps {
   readonly cognitoDomainPrefix: string;
 }
 
-const UI_DIR = new URL("./admin-ui/", import.meta.url);
+const UI_DIR = new URL("../admin-ui/", import.meta.url);
 
 /** 画面の静的ファイル。スクリプトは TypeScript から 1 ファイルにまとめ、インラインのスクリプトを使わない。 */
 export function adminUiFiles(): Record<string, string> {
@@ -115,7 +115,7 @@ export class AdminConsole extends Construct {
     const authFunction = nodeFunction(this, "AuthFunction", {
       // Stryker disable next-line StringLiteral: 表示の文言
       description: "html-share: 管理画面のサインインと署名付き Cookie",
-      entry: fileURLToPath(new URL("./admin/auth-function/index.ts", import.meta.url)),
+      entry: fileURLToPath(new URL("../functions/admin-auth/index.ts", import.meta.url)),
       environment: {
         [ADMIN_FUNCTION_ENV.configParameterName]: ADMIN_CONFIG_PARAMETER_NAME,
         [ADMIN_FUNCTION_ENV.ownerEmail]: props.ownerEmail,
@@ -136,7 +136,7 @@ export class AdminConsole extends Construct {
     const pagesFunction = nodeFunction(this, "PagesFunction", {
       // Stryker disable next-line StringLiteral: 表示の文言
       description: "html-share: 管理画面のページの一覧と URL の発行",
-      entry: fileURLToPath(new URL("./admin/pages-function/index.ts", import.meta.url)),
+      entry: fileURLToPath(new URL("../functions/admin-pages/index.ts", import.meta.url)),
       environment: {
         [ADMIN_FUNCTION_ENV.bucketName]: props.contentBucket.bucketName,
         [ADMIN_FUNCTION_ENV.viewerDomainName]: props.viewerDomainName,

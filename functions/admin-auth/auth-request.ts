@@ -1,9 +1,9 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { getSignedCookies } from "@aws-sdk/cloudfront-signer";
-import { DAY_MS } from "../../scripts/lib/lifetime.js";
-import { ADMIN_PATHS } from "../names.js";
-import type { AdminConfig } from "./admin-config.js";
-import type { UrlRequest, UrlResponse } from "./http.js";
+import type { AdminConfig } from "../../core/admin-config.js";
+import { DAY_MS } from "../../core/lifetime.js";
+import { ADMIN_PATHS } from "../../core/names.js";
+import type { UrlRequest, UrlResponse } from "../http.js";
 
 export interface AuthHandlerDeps {
   loadConfig: () => Promise<AdminConfig>;

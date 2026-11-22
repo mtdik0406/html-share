@@ -1,12 +1,8 @@
-import { DAY_MS, validateLifetimeMs } from "../../scripts/lib/lifetime.js";
-import { assertSlug } from "../../scripts/lib/page.js";
-import { ADMIN_PATHS } from "../names.js";
-import { bodyText, json, type UrlRequest, type UrlResponse } from "./http.js";
-
-export interface PageEntry {
-  slug: string;
-  lastModified: string;
-}
+import type { PageEntry } from "../../core/api-types.js";
+import { DAY_MS, validateLifetimeMs } from "../../core/lifetime.js";
+import { ADMIN_PATHS } from "../../core/names.js";
+import { assertSlug } from "../../core/page.js";
+import { bodyText, json, type UrlRequest, type UrlResponse } from "../http.js";
 
 export interface PagesHandlerDeps {
   listPages: () => Promise<PageEntry[]>;

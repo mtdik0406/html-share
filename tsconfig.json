@@ -12,5 +12,13 @@
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["bin/**/*.ts", "lib/**/*.ts", "scripts/**/*.ts", "test/**/*.ts", "tools/**/*.ts"]
+  "include": [
+    "bin/**/*.ts",
+    "cli/**/*.ts",
+    "core/**/*.ts",
+    "functions/**/*.ts",
+    "infra/**/*.ts",
+    "test/**/*.ts",
+    "tools/**/*.ts"
+  ]
 }

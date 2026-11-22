@@ -2,8 +2,8 @@
 import assert from "node:assert/strict";
 import { createVerify } from "node:crypto";
 import { describe, it } from "node:test";
-import { pageKey } from "../scripts/lib/page.js";
-import { signPageUrl } from "../scripts/lib/signed-url.js";
+import { pageKey } from "../core/page.js";
+import { signPageUrl } from "../core/signed-url.js";
 import { generateTestKeyPair, TEST_DOMAIN, TEST_KEY_PAIR_ID } from "./helpers/keys.js";
 
 const { publicKey, privateKey } = generateTestKeyPair();

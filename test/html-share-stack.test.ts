@@ -5,9 +5,9 @@ import { generateKeyPairSync } from "node:crypto";
 import { before, describe, it } from "node:test";
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
-import { HtmlShareStack } from "../lib/html-share-stack.js";
-import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "../lib/names.js";
-import { MIME_TYPES } from "../scripts/lib/embed.js";
+import { MIME_TYPES } from "../cli/lib/embed.js";
+import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "../core/names.js";
+import { HtmlShareStack } from "../infra/html-share-stack.js";
 import { TEST_ADMIN } from "./helpers/stack.js";
 import { asArray, type Json, refsIn, roleStatements } from "./helpers/template.js";
 

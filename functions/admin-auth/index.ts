@@ -1,11 +1,11 @@
 // Stryker disable all: バンドルを読み込むテスト（test/function-bundle.test.ts）が確かめるが、Stryker はバンドルの中の実行をこのファイルの網羅に数えられない
 import { SSMClient } from "@aws-sdk/client-ssm";
-import { loadSigningKey } from "../../../scripts/lib/signing-key.js";
-import { env } from "../../env.js";
-import { ADMIN_FUNCTION_ENV } from "../../names.js";
-import { cacheUntilFailure } from "../../sign-function/sign-request.js";
-import { createConfigLoader, createPostForm } from "../auth-io.js";
-import { createAuthHandler } from "../auth-request.js";
+import { ADMIN_FUNCTION_ENV } from "../../core/names.js";
+import { loadSigningKey } from "../../core/signing-key.js";
+import { env } from "../env.js";
+import { cacheUntilFailure } from "../sign/sign-request.js";
+import { createConfigLoader, createPostForm } from "./auth-io.js";
+import { createAuthHandler } from "./auth-request.js";
 
 const ssm = new SSMClient({});
 const configParameterName = env(ADMIN_FUNCTION_ENV.configParameterName);

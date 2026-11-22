@@ -1,6 +1,6 @@
-import { slugOfKey } from "../../scripts/lib/page.js";
-import type { RemoteObject } from "../../scripts/lib/sync-plan.js";
-import type { PageEntry } from "./pages-request.js";
+import type { PageEntry } from "../../core/api-types.js";
+import { slugOfKey } from "../../core/page.js";
+import type { RemoteObject } from "../../core/sync-plan.js";
 
 /** sync が置く形（pages/<slug>/index.html）のキーだけをページとして扱い、ほかのオブジェクトは出さない。 */
 export function pageEntries(objects: readonly RemoteObject[]): PageEntry[] {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseConfig } from "../scripts/lib/config.js";
+import { parseConfig } from "../cli/lib/config.js";
 
 const configDir = "/work/conf";
 const home = "/u/me";

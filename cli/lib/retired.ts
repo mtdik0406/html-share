@@ -1,4 +1,4 @@
-import { DAY_MS, MAX_DAYS } from "./lifetime.js";
+import { DAY_MS, MAX_DAYS } from "../../core/lifetime.js";
 
 /** slug → 取り下げた時刻（ISO 8601） */
 export type RetiredSlugs = Readonly<Record<string, string>>;

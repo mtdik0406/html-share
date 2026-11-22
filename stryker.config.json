@@ -6,7 +6,14 @@
     "testFiles": ["test/**/*.test.ts"],
     "nodeArgs": ["--test-reporter=tap", "--import", "tsx"]
   },
-  "mutate": ["scripts/lib/**/*.ts", "lib/**/*.ts", "tools/lib/**/*.ts"],
+  "mutate": [
+    "admin-ui/**/*.ts",
+    "cli/lib/**/*.ts",
+    "core/**/*.ts",
+    "functions/**/*.ts",
+    "infra/**/*.ts",
+    "tools/lib/**/*.ts"
+  ],
   "reporters": ["clear-text", "progress", "json"],
   "thresholds": {
     "high": 90,

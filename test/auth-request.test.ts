@@ -3,15 +3,15 @@
 import assert from "node:assert/strict";
 import { createHash, verify } from "node:crypto";
 import { describe, it } from "node:test";
-import type { AdminConfig } from "../lib/admin/admin-config.js";
+import type { AdminConfig } from "../core/admin-config.js";
+import { DAY_MS } from "../core/lifetime.js";
 import {
   ADMIN_SESSION_MS,
   AUTH_COOKIE,
   type AuthHandlerDeps,
   createAuthHandler,
-} from "../lib/admin/auth-request.js";
-import type { UrlRequest, UrlResponse } from "../lib/admin/http.js";
-import { DAY_MS } from "../scripts/lib/lifetime.js";
+} from "../functions/admin-auth/auth-request.js";
+import type { UrlRequest, UrlResponse } from "../functions/http.js";
 import { generateTestKeyPair, TEST_KEY_PAIR_ID } from "./helpers/keys.js";
 
 const { privateKey, publicKey } = generateTestKeyPair();

@@ -1,8 +1,7 @@
 // 管理画面のブラウザで動く。Node の API に頼らず、ブラウザと Node の両方にある fetch と crypto.subtle だけを使う。
 
-import type { PageEntry } from "../admin/pages-request.js";
-import { ADMIN_PATHS } from "../names.js";
-import type { SignResult } from "../sign-function/sign-request.js";
+import type { PageEntry, SignResult } from "../core/api-types.js";
+import { ADMIN_PATHS } from "../core/names.js";
 
 export type { PageEntry };
 

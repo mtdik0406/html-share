@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { GetParameterCommand } from "@aws-sdk/client-ssm";
-import { createConfigLoader, createPostForm } from "../lib/admin/auth-io.js";
+import { createConfigLoader, createPostForm } from "../functions/admin-auth/auth-io.js";
 
 describe("createPostForm", () => {
   function fakeFetch(response: Response) {

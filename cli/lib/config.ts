@@ -1,5 +1,5 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
-import { assertSlug } from "./page.js";
+import { assertSlug } from "../../core/page.js";
 
 interface PageEntry {
   slug: string;

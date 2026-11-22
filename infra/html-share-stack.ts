@@ -5,8 +5,13 @@ import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
+import {
+  ADMIN_PATHS,
+  OUTPUT_KEYS,
+  SIGN_FUNCTION_ENV,
+  signingKeyParameterName,
+} from "../core/names.js";
 import { AdminConsole, type AdminConsoleProps } from "./admin-console.js";
-import { ADMIN_PATHS, OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
 import { nodeFunction, parameterArn } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
 
@@ -88,7 +93,7 @@ export class HtmlShareStack extends Stack {
     const signFunction = nodeFunction(this, "SignFunction", {
       // Stryker disable next-line StringLiteral: 表示の文言
       description: "html-share: SSM の秘密鍵でページの署名付き URL を作る",
-      entry: fileURLToPath(new URL("./sign-function/index.ts", import.meta.url)),
+      entry: fileURLToPath(new URL("../functions/sign/index.ts", import.meta.url)),
       environment: {
         [SIGN_FUNCTION_ENV.distributionDomainName]: distribution.distributionDomainName,
         [SIGN_FUNCTION_ENV.keyPairId]: publicKey.publicKeyId,

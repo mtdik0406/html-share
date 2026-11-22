@@ -2,7 +2,7 @@ import {
   DescribeStacksCommand,
   type DescribeStacksCommandOutput,
 } from "@aws-sdk/client-cloudformation";
-import { OUTPUT_KEYS, STACK_NAME } from "../../lib/names.js";
+import { OUTPUT_KEYS, STACK_NAME } from "../../core/names.js";
 
 export type OutputName = keyof typeof OUTPUT_KEYS;
 

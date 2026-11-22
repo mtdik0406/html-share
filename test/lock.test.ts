@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { acquireLock } from "../scripts/lib/lock.js";
+import { acquireLock } from "../cli/lib/lock.js";
 
 let base: string;
 let lockDir: string;

@@ -1,9 +1,9 @@
 // Lambda の署名処理を、SSM と時計を差し替えて確かめる。呼び出し元を信じず、slug と期限をここで確かめる。
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { createSignHandler, type SignHandlerDeps } from "../lib/sign-function/sign-request.js";
-import { DAY_MS, MAX_DAYS } from "../scripts/lib/lifetime.js";
-import { signPageUrl } from "../scripts/lib/signed-url.js";
+import { DAY_MS, MAX_DAYS } from "../core/lifetime.js";
+import { signPageUrl } from "../core/signed-url.js";
+import { createSignHandler, type SignHandlerDeps } from "../functions/sign/sign-request.js";
 import { generateTestKeyPair, TEST_DOMAIN, TEST_KEY_PAIR_ID } from "./helpers/keys.js";
 
 const { privateKey } = generateTestKeyPair();

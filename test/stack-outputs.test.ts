@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DescribeStacksCommand } from "@aws-sdk/client-cloudformation";
-import { OUTPUT_KEYS, STACK_NAME } from "../lib/names.js";
-import { type CfnSender, readStackOutputs } from "../scripts/lib/stack-outputs.js";
+import { type CfnSender, readStackOutputs } from "../cli/lib/stack-outputs.js";
+import { OUTPUT_KEYS, STACK_NAME } from "../core/names.js";
 
 function fakeCfn(response: object) {
   const sent: object[] = [];

@@ -4,9 +4,9 @@ import { dirname, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { CloudFormationClient } from "@aws-sdk/client-cloudformation";
 import { S3Client } from "@aws-sdk/client-s3";
+import { DEFAULT_CONFIG_PATH, LOCK_DIR, REPO_ROOT, RETIRED_PATH } from "../core/paths.js";
 import { runCli } from "./lib/cli.js";
 import { parseConfig } from "./lib/config.js";
-import { DEFAULT_CONFIG_PATH, LOCK_DIR, REPO_ROOT, RETIRED_PATH } from "./lib/paths.js";
 import { readStackOutputs } from "./lib/stack-outputs.js";
 import { runSync } from "./lib/sync-run.js";
 

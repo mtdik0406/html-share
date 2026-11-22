@@ -105,9 +105,9 @@ export function findMissingReferences(
 
 /** 手元の秘密鍵を読んでよいのは、鍵を作るときと SSM に置くときだけ。署名は Lambda が SSM の鍵で行う（ADR 9）。 */
 const PRIVATE_KEY_READERS = new Set([
-  "scripts/lib/paths.ts",
-  "scripts/lib/keygen.ts",
-  "scripts/keys-store.ts",
+  "core/paths.ts",
+  "cli/lib/keygen.ts",
+  "cli/keys-store.ts",
   "test/keygen.test.ts",
 ]);
 

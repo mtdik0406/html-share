@@ -1,7 +1,7 @@
 // 管理画面の Lambda が SSM から読む設定。スタックが書く値なので、欠けていたら動かさずに止める。
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseAdminConfig } from "../lib/admin/admin-config.js";
+import { parseAdminConfig } from "../core/admin-config.js";
 
 const VALID = {
   userPoolId: "ap-northeast-1_TEST",

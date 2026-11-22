@@ -5,11 +5,11 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
 import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
-import type { SyncConfig } from "../scripts/lib/config.js";
-import { embedPage } from "../scripts/lib/embed.js";
-import { pageKey } from "../scripts/lib/page.js";
-import type { S3Sender } from "../scripts/lib/s3-sync.js";
-import { runSync, type SyncDeps } from "../scripts/lib/sync-run.js";
+import type { SyncConfig } from "../cli/lib/config.js";
+import { embedPage } from "../cli/lib/embed.js";
+import { runSync, type SyncDeps } from "../cli/lib/sync-run.js";
+import { pageKey } from "../core/page.js";
+import type { S3Sender } from "../core/s3-sync.js";
 
 let base: string;
 let root: string;

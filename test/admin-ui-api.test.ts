@@ -2,8 +2,8 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { describe, it } from "node:test";
-import { ApiError, errorView, fetchPages, issueUrl, SignInRequired } from "../lib/admin-ui/api.js";
-import { ADMIN_PATHS } from "../lib/names.js";
+import { ApiError, errorView, fetchPages, issueUrl, SignInRequired } from "../admin-ui/api.js";
+import { ADMIN_PATHS } from "../core/names.js";
 
 interface Sent {
   url: string;
