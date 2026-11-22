@@ -116,7 +116,7 @@ URL を止める、鍵が漏れた、依存の脆弱性をすぐ直したい、�
 - 作業の約束は [AGENTS.md](AGENTS.md)、設計の判断とその理由は [docs/adr/](docs/adr/) にある
 - コードは、どの実行環境でも同じでなければならない規則と取り決め（`core/`）・手元のコマンド（`cli/`）・Lambda（`functions/`）・CDK（`infra/`、入口は `bin/app.ts`）・管理画面のブラウザのコード（`admin-ui/`）・検査の手順（`tools/`）に分けてある。テストは `test/` の下に、ソースと同じ形で置く。読んでよい向きは `pnpm run lint:repo` が検査する（[ADR 14](docs/adr/0014-folder-layout.md)・[ADR 15](docs/adr/0015-core-holds-shared-rules.md)）。ディレクトリを足すときは `tools/lib/layout.ts` の表に足し、表の横に並べた検査の設定も手で合わせる（[ADR 17](docs/adr/0017-layout-check-only-the-table.md)）
 - `core/` の規則（期限・slug・署名付き URL の形・名前など）は Lambda のバンドルにも入る。変えたら `pnpm exec cdk deploy` するまで、Lambda は古い規則のまま
-- `pnpm run check` が、コミットの前・CI・Claude Code の作業の終わりに実行される。変異テストは、CI が全体を（`pnpm run test:mutation`）、手元では変えたファイルだけを前回の結果を使って（`pnpm run test:mutation:scope`）実行する
+- `pnpm run check` が、コミットの前・CI・Claude Code の作業の終わりに実行される。CI はブランチの push ごとに、`check` と秘密値の検出（gitleaks）を流す。変異テストは、CI が main への push と手動の実行で全体を（`pnpm run test:mutation`）、手元では変えたファイルだけを前回の結果を使って（`pnpm run test:mutation:scope`）実行する（[ADR 19](docs/adr/0019-ci-timing.md)）
 - どれも作業ツリーのコードを実行する。信頼できない PR を取り込んだ作業ツリーでは、コミットも Claude Code での作業もしない
 
 ## 謝辞
