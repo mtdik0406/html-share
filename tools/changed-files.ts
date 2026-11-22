@@ -6,8 +6,9 @@ import { countChangedLines, toPathspecs } from "./lib/review-scope.js";
 
 const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" });
 // -z で NUL 区切りにする。名前に日本語・引用符・tab を含むと、git が引用符付きの形で返し、ファイルを開けなくなるため。
-const names = (...args: string[]) =>
-  git(...args, "-z")
+// -z はサブコマンドの直後に置く。-- の後ろに置くと、pathspec として扱われる。
+const names = (command: string, ...args: string[]) =>
+  git(command, "-z", ...args)
     .split("\0")
     .filter((name) => name !== "");
 
