@@ -12,7 +12,8 @@ import * as ssm from "aws-cdk-lib/aws-ssm";
 import { Construct } from "constructs";
 import { buildSync } from "esbuild";
 import { PAGES_PREFIX } from "../scripts/lib/page.js";
-import { ADMIN_CONFIG_PARAMETER_NAME, ADMIN_FUNCTION_ENV } from "./names.js";
+import type { AdminConfig } from "./admin/auth-request.js";
+import { ADMIN_CONFIG_PARAMETER_NAME, ADMIN_FUNCTION_ENV, ADMIN_PATHS } from "./names.js";
 import { nodeFunction } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
 
@@ -203,12 +204,12 @@ export class AdminConsole extends Construct {
       },
       additionalBehaviors: {
         // サインインの入口なので、署名を求めない。
-        "/auth/*": {
+        [ADMIN_PATHS.authPattern]: {
           ...toFunction,
           origin: lambdaOrigin(authFunction),
           allowedMethods: cloudfront.AllowedMethods.ALLOW_GET_HEAD,
         },
-        "/api/pages/*": {
+        [ADMIN_PATHS.pagesApiPattern]: {
           ...toFunction,
           origin: lambdaOrigin(pagesFunction),
           // URL の発行に POST を使う。
@@ -227,8 +228,8 @@ export class AdminConsole extends Construct {
       oAuth: {
         flows: { authorizationCodeGrant: true },
         scopes: [cognito.OAuthScope.OPENID, cognito.OAuthScope.EMAIL],
-        callbackUrls: [`https://${adminDomain}/auth/callback`],
-        logoutUrls: [`https://${adminDomain}/auth/signed-out`],
+        callbackUrls: [`https://${adminDomain}${ADMIN_PATHS.callback}`],
+        logoutUrls: [`https://${adminDomain}${ADMIN_PATHS.signedOut}`],
       },
       supportedIdentityProviders: [cognito.UserPoolClientIdentityProvider.COGNITO],
       preventUserExistenceErrors: true,
@@ -251,7 +252,7 @@ export class AdminConsole extends Construct {
         clientId: client.userPoolClientId,
         cognitoDomain,
         adminDomain,
-      }),
+      } satisfies AdminConfig),
     });
   }
 }

@@ -28,3 +28,18 @@ export function roleStatements(template: Template, roleId: string): Json[] {
     )
     .flatMap((p) => p.PolicyDocument?.Statement ?? p.Properties.PolicyDocument.Statement);
 }
+
+/**
+ * Fn::Join・Ref・Fn::GetAtt を、`<論理 ID>` や `<論理 ID.属性>` の目印に置き換えた文字列にする。
+ * CDK の書き出し方（部品の分け方）に依存せず、組み上がる値で比べるため。
+ */
+export function resolveString(value: Json): string {
+  if (typeof value === "string") return value;
+  if (value?.Ref) return `<${value.Ref}>`;
+  if (value?.["Fn::GetAtt"]) return `<${value["Fn::GetAtt"].join(".")}>`;
+  if (value?.["Fn::Join"]) {
+    const [separator, parts] = value["Fn::Join"];
+    return parts.map(resolveString).join(separator);
+  }
+  throw new Error(`解決できない値: ${JSON.stringify(value)}`);
+}

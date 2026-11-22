@@ -1,9 +1,10 @@
 // 管理画面のブラウザで動く。Node の API に頼らず、ブラウザと Node の両方にある fetch と crypto.subtle だけを使う。
 
-export interface PageEntry {
-  slug: string;
-  lastModified: string;
-}
+import type { PageEntry } from "../admin/pages-request.js";
+import { ADMIN_PATHS } from "../names.js";
+import type { SignResult } from "../sign-function/sign-request.js";
+
+export type { PageEntry };
 
 /** 署名付き Cookie が切れたか、ない。CloudFront が 403 を返す。 */
 export class SignInRequired extends Error {}
@@ -33,17 +34,13 @@ async function readJson(res: Response): Promise<Record<string, unknown>> {
 }
 
 export async function fetchPages(fetch: Fetch): Promise<PageEntry[]> {
-  const body = await readJson(await fetch("/api/pages/"));
+  const body = await readJson(await fetch(ADMIN_PATHS.pagesApi));
   return body.pages as PageEntry[];
 }
 
-export async function issueUrl(
-  fetch: Fetch,
-  slug: string,
-  days: number,
-): Promise<{ url: string; expiresAt: string }> {
+export async function issueUrl(fetch: Fetch, slug: string, days: number): Promise<SignResult> {
   const body = JSON.stringify({ days });
-  const res = await fetch(`/api/pages/${encodeURIComponent(slug)}/urls`, {
+  const res = await fetch(`${ADMIN_PATHS.pagesApi}${encodeURIComponent(slug)}/urls`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
@@ -52,5 +49,5 @@ export async function issueUrl(
     },
     body,
   });
-  return (await readJson(res)) as { url: string; expiresAt: string };
+  return (await readJson(res)) as unknown as SignResult;
 }

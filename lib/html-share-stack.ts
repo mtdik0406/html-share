@@ -6,7 +6,7 @@ import * as iam from "aws-cdk-lib/aws-iam";
 import * as s3 from "aws-cdk-lib/aws-s3";
 import type { Construct } from "constructs";
 import { AdminConsole, type AdminConsoleProps } from "./admin-console.js";
-import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
+import { ADMIN_PATHS, OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "./names.js";
 import { nodeFunction } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
 
@@ -122,7 +122,7 @@ export class HtmlShareStack extends Stack {
     });
 
     new CfnOutput(this, OUTPUT_KEYS.adminLoginUrl, {
-      value: `https://${adminConsole.distribution.distributionDomainName}/auth/login`,
+      value: `https://${adminConsole.distribution.distributionDomainName}${ADMIN_PATHS.login}`,
       // Stryker disable next-line StringLiteral: 表示の文言
       description: "管理画面のサインインの入口",
     });

@@ -4,18 +4,20 @@ import assert from "node:assert/strict";
 import { before, describe, it } from "node:test";
 import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
+import { parseAdminConfig } from "../lib/admin/admin-config.js";
 import { adminUiFiles } from "../lib/admin-console.js";
 import { HtmlShareStack } from "../lib/html-share-stack.js";
 import {
   ADMIN_CONFIG_PARAMETER_NAME,
   ADMIN_FUNCTION_ENV,
+  ADMIN_PATHS,
   OUTPUT_KEYS,
   signingKeyParameterName,
 } from "../lib/names.js";
 import { PAGES_PREFIX } from "../scripts/lib/page.js";
 import { generateTestKeyPair } from "./helpers/keys.js";
 import { TEST_ADMIN } from "./helpers/stack.js";
-import { asArray, type Json, refsIn, roleStatements } from "./helpers/template.js";
+import { asArray, type Json, refsIn, resolveString, roleStatements } from "./helpers/template.js";
 
 const REGION = "ap-northeast-1";
 const RP_ID = `${TEST_ADMIN.cognitoDomainPrefix}.auth.${REGION}.amazoncognito.com`;
@@ -81,11 +83,14 @@ describe("管理画面", () => {
       );
       assert.equal(viewerKeyGroups.length, 1);
       const b = behaviors();
-      assert.deepEqual([...b.keys()].sort(), ["/api/pages/*", "/auth/*", "default"]);
-      for (const path of ["default", "/api/pages/*"]) {
+      assert.deepEqual(
+        [...b.keys()].sort(),
+        [ADMIN_PATHS.pagesApiPattern, ADMIN_PATHS.authPattern, "default"].sort(),
+      );
+      for (const path of ["default", ADMIN_PATHS.pagesApiPattern]) {
         assert.deepEqual(refsIn(b.get(path).TrustedKeyGroups), viewerKeyGroups, path);
       }
-      assert.deepEqual(refsIn(b.get("/auth/*").TrustedKeyGroups), []);
+      assert.deepEqual(refsIn(b.get(ADMIN_PATHS.authPattern).TrustedKeyGroups), []);
     });
 
     it("画面は、ページとは別のバケットから配る", () => {
@@ -93,6 +98,19 @@ describe("管理画面", () => {
       const buckets = refsIn(origin.DomainName);
       assert.equal(buckets.length, 1);
       assert.ok((buckets[0] as string).startsWith("AdminUiBucket"), buckets[0]);
+    });
+
+    it("Lambda には、Host を除いた閲覧者の要求（Cookie とクエリを含む）を渡す", () => {
+      // AWS が管理するオリジンリクエストポリシー AllViewerExceptHostHeader の ID。
+      // Function URL は、Host が自分のものでない要求を受け付けない。
+      const ALL_VIEWER_EXCEPT_HOST_HEADER = "b689b0a8-53d0-40ab-baf2-68738e2966ac";
+      for (const path of [ADMIN_PATHS.authPattern, ADMIN_PATHS.pagesApiPattern]) {
+        assert.equal(
+          behaviors().get(path).OriginRequestPolicyId,
+          ALL_VIEWER_EXCEPT_HOST_HEADER,
+          path,
+        );
+      }
     });
 
     it("POST を受けるのは URL の発行の API だけで、HTTP は受け付けない", () => {
@@ -126,15 +144,18 @@ describe("管理画面", () => {
       }
     });
 
-    it("画面はインラインのスクリプトも外部の読み込みも許さない", () => {
+    const headersConfig = (): Json => {
       const [policyId] = refsIn(behaviors().get("default").ResponseHeadersPolicyId);
       for (const behavior of behaviors().values()) {
         assert.deepEqual(refsIn(behavior.ResponseHeadersPolicyId), [policyId]);
       }
-      const config = resourcesOf("AWS::CloudFront::ResponseHeadersPolicy")[policyId as string]
-        .Properties.ResponseHeadersPolicyConfig;
+      return resourcesOf("AWS::CloudFront::ResponseHeadersPolicy")[policyId as string].Properties
+        .ResponseHeadersPolicyConfig;
+    };
+
+    it("画面はインラインのスクリプトも外部の読み込みも許さない", () => {
       const csp = new Map<string, string[]>(
-        String(config.SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy)
+        String(headersConfig().SecurityHeadersConfig.ContentSecurityPolicy.ContentSecurityPolicy)
           .split(";")
           .map((d) => d.trim().split(/\s+/))
           .map(([name, ...values]) => [name as string, values]),
@@ -148,12 +169,25 @@ describe("管理画面", () => {
       for (const name of ["frame-ancestors", "base-uri", "form-action"]) {
         assert.deepEqual(csp.get(name), ["'none'"], name);
       }
+    });
+
+    it("閲覧用と同じく、漏らさず・保存させず・埋め込ませず・端末の機能を使わせない", () => {
+      const config = headersConfig();
       assert.equal(config.SecurityHeadersConfig.ReferrerPolicy.ReferrerPolicy, "no-referrer");
       const custom = new Map<string, string>(
         config.CustomHeadersConfig.Items.map((h: Json) => [h.Header.toLowerCase(), h.Value]),
       );
       assert.equal(custom.get("cache-control"), "no-store");
       assert.match(custom.get("x-robots-tag") ?? "", /noindex/);
+      assert.equal(custom.get("cross-origin-opener-policy"), "same-origin");
+      // パスキーは Cognito のドメインで扱うので、管理画面には使わせない。
+      for (const feature of ["publickey-credentials-get", "publickey-credentials-create"]) {
+        assert.ok(custom.get("permissions-policy")?.includes(`${feature}=()`), feature);
+      }
+      const security = config.SecurityHeadersConfig;
+      assert.equal(security.FrameOptions.FrameOption, "DENY");
+      assert.equal(security.ContentTypeOptions.Override, true);
+      assert.ok(security.StrictTransportSecurity.AccessControlMaxAgeSec >= 365 * 86_400);
     });
   });
 
@@ -202,11 +236,14 @@ describe("管理画面", () => {
       assert.deepEqual(c.AllowedOAuthFlows, ["code"]);
       assert.deepEqual([...c.AllowedOAuthScopes].sort(), ["email", "openid"]);
       assert.deepEqual(c.SupportedIdentityProviders, ["COGNITO"]);
-      const [adminId] = admin();
-      const domainOf = (url: Json) => JSON.stringify(url);
-      assert.equal(c.CallbackURLs.length, 1);
-      assert.ok(domainOf(c.CallbackURLs[0]).includes(adminId));
-      assert.ok(domainOf(c.CallbackURLs[0]).endsWith('/auth/callback"]]}'));
+      const adminDomain = `<${admin()[0]}.DomainName>`;
+      // サインインの Lambda が Cognito に渡す戻り先と、一字でも違うと Cognito が拒む。
+      assert.deepEqual(c.CallbackURLs.map(resolveString), [
+        `https://${adminDomain}${ADMIN_PATHS.callback}`,
+      ]);
+      assert.deepEqual(c.LogoutURLs.map(resolveString), [
+        `https://${adminDomain}${ADMIN_PATHS.signedOut}`,
+      ]);
     });
   });
 
@@ -217,11 +254,15 @@ describe("管理画面", () => {
       assert.equal(vars[ADMIN_FUNCTION_ENV.signingKeyParameterName], signingKeyParameterName(1));
       const [, param] = one("AWS::SSM::Parameter");
       assert.equal(param.Properties.Name, ADMIN_CONFIG_PARAMETER_NAME);
-      const value = JSON.stringify(param.Properties.Value);
       const [poolId] = one("AWS::Cognito::UserPool");
       const [clientId] = one("AWS::Cognito::UserPoolClient");
-      for (const id of [poolId, clientId, admin()[0]]) assert.ok(value.includes(id), id);
-      assert.ok(value.includes(RP_ID));
+      // Lambda が読む形（parseAdminConfig）で読めて、キーと値が取り違えていない。
+      assert.deepEqual(parseAdminConfig(resolveString(param.Properties.Value)), {
+        userPoolId: `<${poolId}>`,
+        clientId: `<${clientId}>`,
+        cognitoDomain: RP_ID,
+        adminDomain: `<${admin()[0]}.DomainName>`,
+      });
     });
 
     it("サインインの Lambda に許すのは、設定と鍵のパラメータを読むことだけ", () => {
@@ -268,9 +309,10 @@ describe("管理画面", () => {
       assert.doesNotMatch(html, /<script(?![^>]*\ssrc=)[^>]*>/);
       assert.doesNotMatch(html, /\son[a-z]+=/i);
       for (const [, ref] of html.matchAll(/(?:src|href)="\/([^"]*)"/g)) {
-        if (ref.startsWith("auth/")) continue;
+        if (`/${ref}` === ADMIN_PATHS.logout) continue;
         assert.ok(ref in files, `置いていないファイルを読む: ${ref}`);
       }
+      assert.ok(html.includes(`href="${ADMIN_PATHS.logout}"`), "サインアウトの入口がない");
     });
 
     it("スクリプトは 1 ファイルにまとめ、ほかのファイルを読み込まない", () => {

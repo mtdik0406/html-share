@@ -1,5 +1,6 @@
 import { DAY_MS, validateLifetimeMs } from "../../scripts/lib/lifetime.js";
 import { assertSlug } from "../../scripts/lib/page.js";
+import { ADMIN_PATHS } from "../names.js";
 import { bodyText, json, type UrlRequest, type UrlResponse } from "./http.js";
 
 export interface PageEntry {
@@ -16,8 +17,8 @@ export interface PagesHandlerDeps {
   }>;
 }
 
-const LIST_PATH = "/api/pages/";
-const ISSUE_PATH = /^\/api\/pages\/([^/]+)\/urls$/;
+const LIST_PATH = ADMIN_PATHS.pagesApi;
+const ISSUE_PATH = new RegExp(`^${LIST_PATH}([^/]+)/urls$`);
 
 class BadRequest extends Error {}
 

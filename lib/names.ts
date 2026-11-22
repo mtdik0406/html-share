@@ -68,3 +68,17 @@ export const ADMIN_FUNCTION_ENV = {
 
 /** 管理画面の設定のパラメータ。スタックが書き、管理画面の Lambda が読む。 */
 export const ADMIN_CONFIG_PARAMETER_NAME = "/html-share/admin-config";
+
+/**
+ * 管理画面のパス。スタック（ビヘイビアと Cognito の戻り先）・Lambda のルート・画面で食い違うと、
+ * サインインやサインアウトが Cognito の照合で失敗するので、ここで決める。画面のバンドルからも読むので、ほかを import しない。
+ */
+export const ADMIN_PATHS = {
+  authPattern: "/auth/*",
+  login: "/auth/login",
+  callback: "/auth/callback",
+  logout: "/auth/logout",
+  signedOut: "/auth/signed-out",
+  pagesApiPattern: "/api/pages/*",
+  pagesApi: "/api/pages/",
+} as const;

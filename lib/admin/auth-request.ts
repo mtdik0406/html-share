@@ -1,6 +1,7 @@
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { getSignedCookies } from "@aws-sdk/cloudfront-signer";
 import { DAY_MS } from "../../scripts/lib/lifetime.js";
+import { ADMIN_PATHS } from "../names.js";
 import type { UrlRequest, UrlResponse } from "./http.js";
 
 export interface AdminConfig {
@@ -62,10 +63,11 @@ const redirect = (location: string, cookies: string[] = []): UrlResponse => ({
 const forbidden = (): UrlResponse => ({
   statusCode: 403,
   headers: { "content-type": "text/plain; charset=utf-8" },
-  body: "サインインできませんでした。もう一度 /auth/login から始めてください",
+  // Stryker disable next-line StringLiteral: 表示の文言
+  body: `サインインできませんでした。もう一度 ${ADMIN_PATHS.login} から始めてください`,
 });
 
-const callbackUrl = (config: AdminConfig) => `https://${config.adminDomain}/auth/callback`;
+const callbackUrl = (config: AdminConfig) => `https://${config.adminDomain}${ADMIN_PATHS.callback}`;
 
 function sameText(a: string, b: string): boolean {
   const x = Buffer.from(a);
@@ -172,7 +174,7 @@ async function logout(deps: AuthHandlerDeps): Promise<UrlResponse> {
   const config = await deps.loadConfig();
   const query = new URLSearchParams({
     client_id: config.clientId,
-    logout_uri: `https://${config.adminDomain}/auth/signed-out`,
+    logout_uri: `https://${config.adminDomain}${ADMIN_PATHS.signedOut}`,
   });
   return redirect(
     `https://${config.cognitoDomain}/logout?${query}`,
@@ -182,17 +184,17 @@ async function logout(deps: AuthHandlerDeps): Promise<UrlResponse> {
 
 const SIGNED_OUT_PAGE = `<!doctype html>
 <html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>html-share</title></head>
-<body><p>サインアウトしました。</p><p><a href="/auth/login">もう一度サインインする</a></p></body></html>
+<body><p>サインアウトしました。</p><p><a href="${ADMIN_PATHS.login}">もう一度サインインする</a></p></body></html>
 `;
 
 export function createAuthHandler(
   deps: AuthHandlerDeps,
 ): (request: UrlRequest) => Promise<UrlResponse> {
   const routes: Record<string, (request: UrlRequest) => Promise<UrlResponse>> = {
-    "/auth/login": () => startLogin(deps),
-    "/auth/callback": (request) => finishLogin(deps, request),
-    "/auth/logout": () => logout(deps),
-    "/auth/signed-out": async () => ({
+    [ADMIN_PATHS.login]: () => startLogin(deps),
+    [ADMIN_PATHS.callback]: (request) => finishLogin(deps, request),
+    [ADMIN_PATHS.logout]: () => logout(deps),
+    [ADMIN_PATHS.signedOut]: async () => ({
       statusCode: 200,
       headers: { "content-type": "text/html; charset=utf-8" },
       body: SIGNED_OUT_PAGE,
