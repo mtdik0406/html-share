@@ -200,16 +200,8 @@ describe("findForbiddenImports", () => {
       "const h = await import(`../cli/h.js`);",
       'import "./../cli/i.js";',
       'import j from "..";',
-      'import type K = require("../cli/k.js");',
     ].join("\n");
-    assert.deepEqual(lines("core/page.ts", source), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-  });
-
-  it("ファイルの先頭の /// <reference path> も見る", () => {
-    const source = ['/// <reference types="node" />', '/// <reference path="../cli/l.ts" />'].join(
-      "\n",
-    );
-    assert.deepEqual(lines("core/page.ts", source), [2]);
+    assert.deepEqual(lines("core/page.ts", source), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
   });
 
   it("読んでよい所なら、どの書き方でも見つけない", () => {
@@ -222,11 +214,8 @@ describe("findForbiddenImports", () => {
       'type F = import("./f.js").F;',
       "const h = await import(`./h.js`);",
       "export { local };",
-      'import type M = require("./m.js");',
-      "import N = Local.N;",
     ].join("\n");
     assert.deepEqual(lines("core/page.ts", source), []);
-    assert.deepEqual(lines("core/page.ts", '/// <reference path="./o.ts" />'), []);
     assert.deepEqual(lines("admin-ui/index.ts", 'import { x } from "./api.js";'), []);
   });
 

@@ -123,6 +123,7 @@ export function findPrivateKeyAccess(path: string, text: string): Finding[] {
   );
 }
 
+/** import・export ... from・import() を見る。import X = require() と /// <reference path> は、ESM のこのリポジトリでは書かないので見ない。 */
 export function findForbiddenImports(path: string, source: string): Finding[] {
   const allowed = ALLOWED_IMPORTS[topDir(path)];
   if (allowed === undefined || !path.endsWith(".ts")) return [];
@@ -138,8 +139,6 @@ export function findForbiddenImports(path: string, source: string): Finding[] {
       reason: `${topDir(path)}/ から読めない場所を読んでいる: ${spec}`,
     });
   };
-  // /// <reference path="..." /> は、構文木のノードにならない。
-  for (const ref of file.referencedFiles) check(ref.fileName, ref.pos);
   const visit = (node: ts.Node): void => {
     const spec = moduleSpecifier(node);
     if (spec !== undefined) check(spec.text, spec.getStart());
@@ -158,14 +157,6 @@ function moduleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
     const spec = node.moduleSpecifier;
     // Stryker disable next-line ConditionalExpression: 式全体を true にしても、from の後ろは構文の上で文字列か undefined なので、返す値は同じ
     return spec !== undefined && ts.isStringLiteral(spec) ? spec : undefined;
-  }
-  // import X = require("...")。import X = A.B は、ほかのファイルを読まない。
-  if (ts.isImportEqualsDeclaration(node)) {
-    const ref = node.moduleReference;
-    // Stryker disable next-line ConditionalExpression: 式全体を true にしても、A.B には expression がなく、require の引数は構文の上で文字列なので、返す値は同じ
-    return ts.isExternalModuleReference(ref) && ts.isStringLiteral(ref.expression)
-      ? ref.expression
-      : undefined;
   }
   return importCallSpecifier(node);
 }
