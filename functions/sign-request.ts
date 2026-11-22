@@ -1,4 +1,4 @@
-import type { SignResult } from "../core/api-types.js";
+import type { SignRequest, SignResult } from "../core/api-types.js";
 import { validateLifetimeMs } from "../core/lifetime.js";
 import { assertSlug } from "../core/page.js";
 import { signPageUrl } from "../core/signed-url.js";
@@ -8,11 +8,6 @@ export interface SignHandlerDeps {
   keyPairId: string;
   loadPrivateKey: () => Promise<string>;
   now: () => Date;
-}
-
-interface SignRequest {
-  slug: string;
-  lifetimeMs: number;
 }
 
 // 呼び出し元を信じない。ここで確かめないと、上限を超える URL や別のパスへの署名を作れてしまう。

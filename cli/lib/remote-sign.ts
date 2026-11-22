@@ -1,18 +1,9 @@
 import { InvokeCommand, type InvokeCommandOutput } from "@aws-sdk/client-lambda";
+import type { SignRequest, SignResult } from "../../core/api-types.js";
 
 /** LambdaClient の send だけを使う。テストで偽物に差し替えるため。 */
 export interface LambdaSender {
   send(command: object): Promise<unknown>;
-}
-
-export interface RemoteSignRequest {
-  slug: string;
-  lifetimeMs: number;
-}
-
-export interface RemoteSignResult {
-  url: string;
-  expiresAt: string;
 }
 
 // Stryker disable BlockStatement: catch を空にしても undefined を返すので、振る舞いは同じ
@@ -25,7 +16,7 @@ function decodePayload(payload: Uint8Array | undefined): unknown {
 }
 // Stryker restore BlockStatement
 
-function isSignResult(value: unknown): value is RemoteSignResult {
+function isSignResult(value: unknown): value is SignResult {
   const fields = value as Record<string, unknown> | null | undefined;
   // Stryker disable next-line OptionalChaining: null を読んでも TypeError で拒むので、振る舞いは同じ
   return typeof fields?.url === "string" && typeof fields?.expiresAt === "string";
@@ -35,8 +26,8 @@ function isSignResult(value: unknown): value is RemoteSignResult {
 export async function requestSignedUrl(
   lambda: LambdaSender,
   functionName: string,
-  request: RemoteSignRequest,
-): Promise<RemoteSignResult> {
+  request: SignRequest,
+): Promise<SignResult> {
   const res = (await lambda.send(
     new InvokeCommand({
       FunctionName: functionName,
