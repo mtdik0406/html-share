@@ -123,8 +123,7 @@ describe("findMissingReferences", () => {
 });
 
 describe("findPrivateKeyAccess", () => {
-  const code =
-    'import { PRIVATE_KEY_PATH } from "../../lib/paths.js";\nreadFile(PRIVATE_KEY_PATH);';
+  const code = 'import { PRIVATE_KEY_PATH } from "./lib/paths.js";\nreadFile(PRIVATE_KEY_PATH);';
 
   it("決めた場所の外のコードが、秘密鍵の場所を参照していたら見つける", () => {
     assert.deepEqual(
@@ -199,8 +198,7 @@ describe("findForbiddenImports", () => {
       'type F = import("../cli/f.js").F;',
       'let g: typeof import("../cli/g.js");',
       "const h = await import(`../cli/h.js`);",
-      // 整形が ./../ を ../ に縮めるので、つないで書く。
-      `import "./${"../cli/i.js"}";`,
+      'import "./../cli/i.js";',
       'import j from "..";',
       'import type K = require("../cli/k.js");',
     ].join("\n");
