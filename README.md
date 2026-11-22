@@ -6,6 +6,9 @@ AI が作った HTML を自分の AWS に置き、期限付きの署名付き UR
 閲覧者 ──(署名付き URL)──▶ CloudFront ──(OAC)──▶ S3（非公開）
                            └ 公開鍵で署名を検証
 pnpm run sign ──(IAM)──▶ Lambda ──▶ SSM（秘密鍵）
+
+管理画面 ──(署名付き Cookie)──▶ CloudFront ──(OAC)──▶ 画面（S3）・ページの API（Lambda）
+          └ /auth/* ──▶ サインインの Lambda ──▶ Cognito（パスキー）
 ```
 
 ## 必要なもの
@@ -21,6 +24,7 @@ pnpm run sign ──(IAM)──▶ Lambda ──▶ SSM（秘密鍵）
 pnpm install --frozen-lockfile
 pnpm run keygen                     # .keys/ に鍵ペアを作る（既存の鍵は上書きしない）
 export AWS_PROFILE=<プロファイル名>
+export HTML_SHARE_OWNER_EMAIL=<管理画面に入る人のメールアドレス>   # cdk のコマンドのたびに要る
 pnpm exec cdk bootstrap             # アカウントとリージョンごとに 1 回だけ
 pnpm exec cdk deploy
 pnpm run keys:store                 # 秘密鍵を SSM の SecureString に置く
@@ -74,6 +78,16 @@ pnpm run sign report --minutes 1        # 期限は 1 分以上、30 日以内
 ```
 
 期限と slug は Lambda が確かめる。期限内の URL を持つ人は、誰でも見られる。`sign` は URL を標準出力に出すので、AI エージェントのセッションで実行すると、その記録に残る。期限は必要な長さに絞る。
+
+## 管理画面から URL を配る
+
+スマートフォンなど、リポジトリのない端末から、ページの一覧を見て URL を発行できる（[ADR 13](docs/adr/0013-admin-console.md)）。ページを置く・消す操作は、管理画面ではできない。
+
+1. deploy の出力 `AdminLoginUrl`（`https://<管理画面のドメイン>/auth/login`）を開く。ブックマークしておく
+2. 初めてのときは、`HTML_SHARE_OWNER_EMAIL` のアドレスに届いた仮のパスワードでサインインし、パスワードを決め、TOTP のアプリを登録する。続けてパスキーを登録する
+3. 次からはパスキーでサインインする。パスワードで入るときは TOTP も求められる
+
+サインインは 1 日で切れる。サインインせずに管理画面の `/` を開くと 403 になるので、`/auth/login` から入る。サインアウトしても、その前に盗まれた Cookie は期限まで使える。止めるには鍵を作り直す（[docs/runbook.md](docs/runbook.md)）。
 
 ## ページの書き方
 
