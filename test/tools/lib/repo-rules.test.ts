@@ -196,8 +196,37 @@ describe("findForbiddenImports", () => {
       'export { C } from "../cli/c.js";',
       'export * from "../cli/d.js";',
       'const e = await import("../cli/e.js");',
+      'type F = import("../cli/f.js").F;',
+      'let g: typeof import("../cli/g.js");',
+      "const h = await import(`../cli/h.js`);",
+      'import "./../cli/i.js";',
+      'import j from "..";',
     ].join("\n");
-    assert.deepEqual(lines("core/page.ts", source), [1, 2, 3, 4, 5]);
+    assert.deepEqual(lines("core/page.ts", source), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+  });
+
+  it("読んでよい所なら、どの書き方でも見つけない", () => {
+    const source = [
+      'import type { A } from "./a.js";',
+      'import { type B } from "./b.js";',
+      'export { C } from "./c.js";',
+      'export * from "./d.js";',
+      'const e = await import("./e.js");',
+      'type F = import("./f.js").F;',
+      "const h = await import(`./h.js`);",
+      "export { local };",
+    ].join("\n");
+    assert.deepEqual(lines("core/page.ts", source), []);
+    assert.deepEqual(lines("admin-ui/index.ts", 'import { x } from "./api.js";'), []);
+  });
+
+  it("import() でない呼び出しと、相対パスに見えるだけのパッケージの指定は見ない", () => {
+    const source = [
+      'readFileSync("../cli/a.js");',
+      'import x from "pkg/../../cli/b.js";',
+      "const c = await import(name);",
+    ].join("\n");
+    assert.deepEqual(lines("core/page.ts", source), []);
   });
 
   it("パッケージと Node の組み込みは見ない", () => {

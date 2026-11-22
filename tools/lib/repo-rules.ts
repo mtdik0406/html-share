@@ -141,7 +141,7 @@ export function findForbiddenImports(path: string, source: string): Finding[] {
   const findings: Finding[] = [];
   const visit = (node: ts.Node): void => {
     const spec = moduleSpecifier(node);
-    if (spec !== undefined && /^\.\.?\//.test(spec.text)) {
+    if (spec !== undefined && /^\.\.?(?:\/|$)/.test(spec.text)) {
       const target = topDir(posix.join(posix.dirname(path), spec.text));
       if (!allowed.includes(target)) {
         findings.push({
@@ -161,21 +161,22 @@ function topDir(path: string): string {
   return posix.normalize(path).split("/")[0] as string;
 }
 
-function moduleSpecifier(node: ts.Node): ts.StringLiteral | undefined {
-  if (
-    (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
-    node.moduleSpecifier !== undefined &&
-    ts.isStringLiteral(node.moduleSpecifier)
-  ) {
-    return node.moduleSpecifier;
+function moduleSpecifier(node: ts.Node): ts.StringLiteralLike | undefined {
+  if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
+    const spec = node.moduleSpecifier;
+    // Stryker disable next-line ConditionalExpression: 構文の上で、from の後ろは文字列しか書けない。from のない export では undefined を返すことに変わりない
+    return spec !== undefined && ts.isStringLiteral(spec) ? spec : undefined;
   }
-  if (
-    ts.isCallExpression(node) &&
-    node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-    node.arguments[0] !== undefined &&
-    ts.isStringLiteral(node.arguments[0])
-  ) {
-    return node.arguments[0];
+  // 型の位置の import("...")。
+  if (ts.isImportTypeNode(node)) {
+    const arg = node.argument;
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: 文字列でない引数は tsc が落とし、.text も ./ や ../ で始まらない
+    return ts.isLiteralTypeNode(arg) && ts.isStringLiteral(arg.literal) ? arg.literal : undefined;
+  }
+  if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
+    const [arg] = node.arguments;
+    // Stryker disable next-line ConditionalExpression,LogicalOperator: 引数のない import() は tsc が落とす。変数を渡したときの .text は識別子の名前で、./ や ../ で始まらない
+    return arg !== undefined && ts.isStringLiteralLike(arg) ? arg : undefined;
   }
   return undefined;
 }
