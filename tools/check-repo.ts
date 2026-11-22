@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync } from "node:fs";
 import {
   adrChangedOutsideStatus,
   type Finding,
+  findForbiddenImports,
   findForbiddenText,
   findMessageAssertions,
   findMissingReferences,
@@ -56,6 +57,7 @@ for (const path of files()) {
   if (!EXEMPT_FROM_TEXT_RULES.has(path)) report(path, findForbiddenText(text));
   if (path.startsWith("test/") && path.endsWith(".ts")) report(path, findMessageAssertions(text));
   if (!EXEMPT_FROM_TEXT_RULES.has(path)) report(path, findPrivateKeyAccess(path, text));
+  report(path, findForbiddenImports(path, text));
   // ADR は決めた時点の記録なので、後で名前が変わった参照も残す。
   if (path.endsWith(".md") && !path.startsWith("docs/adr/")) {
     report(path, findMissingReferences(text, known));

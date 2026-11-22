@@ -1,3 +1,4 @@
+import { posix } from "node:path";
 import ts from "typescript";
 
 export interface Finding {
@@ -119,4 +120,62 @@ export function findPrivateKeyAccess(path: string, text: string): Finding[] {
         [{ line: i + 1, reason: "秘密鍵の場所を参照している（署名は Lambda が行う）" }]
       : [],
   );
+}
+
+/** ディレクトリごとに、相対パスで読んでよいディレクトリ（ADR 14）。表にないディレクトリ（test/ など）は見ない。 */
+const ALLOWED_IMPORTS: Readonly<Record<string, readonly string[]>> = {
+  core: ["core"],
+  cli: ["core", "cli"],
+  functions: ["core", "functions"],
+  infra: ["core", "infra"],
+  "admin-ui": ["core", "admin-ui"],
+  bin: ["core", "infra"],
+  tools: ["tools"],
+};
+
+export function findForbiddenImports(path: string, source: string): Finding[] {
+  const allowed = ALLOWED_IMPORTS[topDir(path)];
+  if (allowed === undefined || !path.endsWith(".ts")) return [];
+  // Stryker disable next-line StringLiteral: 解析に使わない仮のファイル名
+  const file = ts.createSourceFile("source.ts", source, ts.ScriptTarget.Latest, true);
+  const findings: Finding[] = [];
+  const visit = (node: ts.Node): void => {
+    const spec = moduleSpecifier(node);
+    if (spec !== undefined && /^\.\.?\//.test(spec.text)) {
+      const target = topDir(posix.join(posix.dirname(path), spec.text));
+      if (!allowed.includes(target)) {
+        findings.push({
+          line: file.getLineAndCharacterOfPosition(spec.getStart()).line + 1,
+          // Stryker disable next-line StringLiteral: 表示の文言
+          reason: `${topDir(path)}/ から読めない場所を読んでいる: ${spec.text}`,
+        });
+      }
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(file);
+  return findings;
+}
+
+function topDir(path: string): string {
+  return posix.normalize(path).split("/")[0] as string;
+}
+
+function moduleSpecifier(node: ts.Node): ts.StringLiteral | undefined {
+  if (
+    (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) &&
+    node.moduleSpecifier !== undefined &&
+    ts.isStringLiteral(node.moduleSpecifier)
+  ) {
+    return node.moduleSpecifier;
+  }
+  if (
+    ts.isCallExpression(node) &&
+    node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+    node.arguments[0] !== undefined &&
+    ts.isStringLiteral(node.arguments[0])
+  ) {
+    return node.arguments[0];
+  }
+  return undefined;
 }

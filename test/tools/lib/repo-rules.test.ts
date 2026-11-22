@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   adrChangedOutsideStatus,
+  findForbiddenImports,
   findForbiddenText,
   findMessageAssertions,
   findMissingReferences,
@@ -147,5 +148,67 @@ describe("findPrivateKeyAccess", () => {
   it("コードでないファイルと、名前の一部が同じだけの識別子は見ない", () => {
     assert.deepEqual(findPrivateKeyAccess("README.md", code), []);
     assert.deepEqual(findPrivateKeyAccess("cli/sign.ts", "MY_PRIVATE_KEY_PATHS"), []);
+  });
+});
+
+describe("findForbiddenImports", () => {
+  const lines = (path: string, source: string) =>
+    findForbiddenImports(path, source).map((f) => f.line);
+
+  for (const [from, spec] of [
+    ["core/page.ts", "./lifetime.js"],
+    ["cli/lib/sync-run.ts", "../../core/page.js"],
+    ["cli/sync.ts", "./lib/cli.js"],
+    ["functions/admin-auth/index.ts", "../sign/sign-request.js"],
+    ["functions/sign/index.ts", "../../core/names.js"],
+    ["infra/admin-console.ts", "./node-function.js"],
+    ["infra/admin-console.ts", "../core/admin-config.js"],
+    ["admin-ui/index.ts", "../core/lifetime.js"],
+    ["bin/app.ts", "../infra/html-share-stack.js"],
+    ["bin/app.ts", "../core/paths.js"],
+    ["tools/check-repo.ts", "./lib/repo-rules.js"],
+  ] as const) {
+    it(`${from} は ${spec} を読んでよい`, () => {
+      assert.deepEqual(lines(from, `import { x } from "${spec}";`), []);
+    });
+  }
+
+  for (const [from, spec] of [
+    ["core/page.ts", "../cli/lib/config.js"],
+    ["core/names.ts", "../infra/names.js"],
+    ["cli/lib/sync-run.ts", "../../functions/http.js"],
+    ["functions/sign/index.ts", "../../infra/node-function.js"],
+    ["infra/admin-console.ts", "../functions/admin-auth/auth-io.js"],
+    ["admin-ui/api.ts", "../functions/http.js"],
+    ["bin/app.ts", "../cli/lib/cli.js"],
+    ["tools/check-repo.ts", "../core/page.js"],
+    ["core/page.ts", "../../outside.js"],
+  ] as const) {
+    it(`${from} が ${spec} を読んだら見つける`, () => {
+      assert.deepEqual(lines(from, `import { x } from "${spec}";`), [1]);
+    });
+  }
+
+  it("型だけの import・export ... from・import() も見る", () => {
+    const source = [
+      'import type { A } from "../cli/a.js";',
+      'import { type B } from "../cli/b.js";',
+      'export { C } from "../cli/c.js";',
+      'export * from "../cli/d.js";',
+      'const e = await import("../cli/e.js");',
+    ].join("\n");
+    assert.deepEqual(lines("core/page.ts", source), [1, 2, 3, 4, 5]);
+  });
+
+  it("パッケージと Node の組み込みは見ない", () => {
+    const source = 'import { App } from "aws-cdk-lib";\nimport { readFileSync } from "node:fs";';
+    assert.deepEqual(lines("core/page.ts", source), []);
+  });
+
+  it("テストと、表にないディレクトリと、TypeScript でないファイルは見ない", () => {
+    const source = 'import { x } from "../cli/lib/cli.js";';
+    assert.deepEqual(lines("test/core/page.test.ts", source), []);
+    assert.deepEqual(lines("samples/a.ts", source), []);
+    assert.deepEqual(lines("core/notes.md", source), []);
   });
 });
