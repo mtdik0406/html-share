@@ -4,11 +4,14 @@ import { parseArgs } from "node:util";
 import { CODE_DIRS } from "./lib/layout.js";
 import { countChangedLines, toPathspecs } from "./lib/review-scope.js";
 
-const git = (...args: string[]) => execFileSync("git", args, { encoding: "utf8" });
+const git = (...args: string[]) => gitIn(undefined, ...args);
+const gitIn = (cwd: string | undefined, ...args: string[]) =>
+  execFileSync("git", args, { encoding: "utf8", cwd });
 // -z で NUL 区切りにする。名前に日本語・引用符・tab を含むと、git が引用符付きの形で返し、ファイルを開けなくなるため。
 // -z はサブコマンドの直後に置く。-- の後ろに置くと、pathspec として扱われる。
-const names = (command: string, ...args: string[]) =>
-  git(command, "-z", ...args)
+const names = (command: string, ...args: string[]) => namesIn(undefined, command, ...args);
+const namesIn = (cwd: string | undefined, command: string, ...args: string[]) =>
+  gitIn(cwd, command, "-z", ...args)
     .split("\0")
     .filter((name) => name !== "");
 
@@ -45,12 +48,12 @@ export function changedFiles(base: string): {
   };
 }
 
-/** Stryker の mutate の glob に当たる、git が知っているファイルと新しいファイル。 */
-export function filesMatching(globs: readonly string[]): string[] {
+/** Stryker の mutate の glob に当たる、git が知っているファイルと新しいファイル。cwd はテストで一時のリポジトリを指すため。 */
+export function filesMatching(globs: readonly string[], cwd?: string): string[] {
   const specs = toPathspecs(globs);
   return [
-    ...names("ls-files", "--", ...specs),
-    ...names("ls-files", "--others", "--exclude-standard", "--", ...specs),
+    ...namesIn(cwd, "ls-files", "--", ...specs),
+    ...namesIn(cwd, "ls-files", "--others", "--exclude-standard", "--", ...specs),
   ];
 }
 
