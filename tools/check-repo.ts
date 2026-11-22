@@ -1,7 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import ts from "typescript";
-import { findLayoutGaps, layoutInput } from "./lib/layout.js";
+import { findUnlistedDirs } from "./lib/layout.js";
 import {
   adrChangedOutsideStatus,
   type Finding,
@@ -72,28 +71,12 @@ for (const path of files()) {
   }
 }
 
-// knip.jsonc と tsconfig.json はコメントを書けるので、TypeScript の読み方で読む。
-const readJsonc = (path: string) => {
-  const { config, error } = ts.parseConfigFileTextToJson(path, readFileSync(path, "utf8"));
-  if (error !== undefined) throw new Error(`${path} を読めません`);
-  return config;
-};
-// 追跡しているファイルだけを数える（ADR 16）。消したがまだ git に伝えていないファイルは数えない。
+// 追跡しているファイルだけを数える。消したがまだ git に伝えていないファイルは数えない。
 const tracked = git("ls-files", "--cached")
   .split("\n")
   .filter((f) => f !== "" && existsSync(f));
-const layout = layoutInput(tracked, {
-  tsconfig: readJsonc("tsconfig.json"),
-  knip: readJsonc("knip.jsonc"),
-  stryker: JSON.parse(readFileSync("stryker.config.json", "utf8")),
-  scripts: JSON.parse(readFileSync("package.json", "utf8")).scripts,
-});
-for (const { dir, check } of findLayoutGaps(layout)) {
-  problems.push(
-    check === "imports"
-      ? `${dir}/ が依存の向きの表（tools/lib/layout.ts）にない`
-      : `${dir}/ が ${check} の対象に入っていない（tools/lib/layout.ts と設定を合わせる）`,
-  );
+for (const dir of findUnlistedDirs(tracked)) {
+  problems.push(`${dir}/ が依存の向きの表（tools/lib/layout.ts）にない`);
 }
 
 if (problems.length > 0) {

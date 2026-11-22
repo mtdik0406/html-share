@@ -38,7 +38,7 @@ export function reviewScope(
 export function guardedFiles(files: readonly string[]): string[] {
   return files.filter(
     (file) =>
-      // ディレクトリごとの tsconfig.json も、型検査の設定（ADR 16）。
+      // ディレクトリごとの tsconfig.json も、型検査の設定（ADR 14）。
       file.endsWith("/tsconfig.json") ||
       GUARDED_PATHS.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path)),
   );
