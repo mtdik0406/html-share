@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import ts from "typescript";
-import { findLayoutGaps } from "./lib/layout.js";
+import { findLayoutGaps, layoutInput } from "./lib/layout.js";
 import {
   adrChangedOutsideStatus,
   type Finding,
@@ -78,26 +78,17 @@ const readJsonc = (path: string) => {
   if (error !== undefined) throw new Error(`${path} を読めません`);
   return config;
 };
-const tracked = files();
-const topDirs = (suffix: string) => [
-  ...new Set(
-    tracked
-      .filter((f) => f.includes("/") && f.endsWith(suffix))
-      .map((f) => f.split("/")[0] as string),
-  ),
-];
-const { scripts } = JSON.parse(readFileSync("package.json", "utf8"));
-for (const { dir, check } of findLayoutGaps({
-  dirsWithTs: topDirs(".ts"),
-  dirsWithTsconfig: topDirs("/tsconfig.json").filter((dir) =>
-    tracked.includes(`${dir}/tsconfig.json`),
-  ),
-  tsconfigInclude: readJsonc("tsconfig.json").include,
-  knipProject: readJsonc("knip.jsonc").project,
-  strykerMutate: JSON.parse(readFileSync("stryker.config.json", "utf8")).mutate,
-  testScript: scripts.test,
-  duplicateScript: scripts["lint:duplicate"],
-})) {
+// 追跡しているファイルだけを数える（ADR 16）。消したがまだ git に伝えていないファイルは数えない。
+const tracked = git("ls-files", "--cached")
+  .split("\n")
+  .filter((f) => f !== "" && existsSync(f));
+const layout = layoutInput(tracked, {
+  tsconfig: readJsonc("tsconfig.json"),
+  knip: readJsonc("knip.jsonc"),
+  stryker: JSON.parse(readFileSync("stryker.config.json", "utf8")),
+  scripts: JSON.parse(readFileSync("package.json", "utf8")).scripts,
+});
+for (const { dir, check } of findLayoutGaps(layout)) {
   problems.push(
     check === "imports"
       ? `${dir}/ が依存の向きの表（tools/lib/layout.ts）にない`

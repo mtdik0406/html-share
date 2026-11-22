@@ -12,7 +12,6 @@ const GUARDED_PATHS: readonly string[] = [
   "knip.jsonc",
   "stryker.config.json",
   "tsconfig.json",
-  "admin-ui/tsconfig.json",
   "package.json",
   "pnpm-workspace.yaml",
   ".nvmrc",
@@ -37,8 +36,11 @@ export function reviewScope(
 }
 
 export function guardedFiles(files: readonly string[]): string[] {
-  return files.filter((file) =>
-    GUARDED_PATHS.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path)),
+  return files.filter(
+    (file) =>
+      // ディレクトリごとの tsconfig.json も、型検査の設定（ADR 16）。
+      file.endsWith("/tsconfig.json") ||
+      GUARDED_PATHS.some((path) => (path.endsWith("/") ? file.startsWith(path) : file === path)),
   );
 }
 

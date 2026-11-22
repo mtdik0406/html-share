@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CODE_DIRS, findLayoutGaps, type LayoutInput } from "../../../tools/lib/layout.js";
+import {
+  CODE_DIRS,
+  findLayoutGaps,
+  type LayoutInput,
+  layoutInput,
+} from "../../../tools/lib/layout.js";
 
 const covered: LayoutInput = {
   dirsWithTs: ["admin-ui", "bin", "cli", "core", "functions", "infra", "test", "tools"],
@@ -41,6 +46,7 @@ const covered: LayoutInput = {
   ].join(" "),
   duplicateScript:
     "jscpd --exit-code --reporters console admin-ui bin cli core functions infra tools test",
+  typecheckScript: "tsc --noEmit && tsc --noEmit -p admin-ui",
 };
 
 const gaps = (input: Partial<LayoutInput>) => findLayoutGaps({ ...covered, ...input });
@@ -78,6 +84,16 @@ describe("findLayoutGaps", () => {
     assert.deepEqual(gaps({ dirsWithTsconfig: [] }), [{ dir: "admin-ui", check: "tsconfig" }]);
   });
 
+  it("自分の tsconfig.json を持っても、typecheck が -p で流していなければ見つける", () => {
+    assert.deepEqual(gaps({ typecheckScript: "tsc --noEmit" }), [
+      { dir: "admin-ui", check: "tsconfig" },
+    ]);
+    assert.deepEqual(gaps({ typecheckScript: "tsc --noEmit -p admin-ui-old admin-ui" }), [
+      { dir: "admin-ui", check: "tsconfig" },
+    ]);
+    assert.deepEqual(gaps({ typecheckScript: "tsc --noEmit --project admin-ui" }), []);
+  });
+
   it("knip と jscpd の対象にないディレクトリを見つける（test を含む）", () => {
     assert.deepEqual(gaps({ knipProject: without(covered.knipProject, "test") }), [
       { dir: "test", check: "knip" },
@@ -97,9 +113,18 @@ describe("findLayoutGaps", () => {
     );
   });
 
-  it("入口だけの bin と、テストの test は、網羅率と変異テストの対象にしなくてよい", () => {
-    assert.deepEqual(gaps({ dirsWithTs: [...covered.dirsWithTs] }), []);
-    assert.ok(!covered.strykerMutate.some((g) => g.startsWith("bin/") || g.startsWith("test/")));
+  it("入口だけの bin と、テストの test は、網羅率と変異テストの対象にしなくてよいが、ほかの検査からは外せない", () => {
+    const testScript = `${covered.testScript} --test-coverage-include="bin/**"`;
+    assert.deepEqual(
+      gaps({ testScript, strykerMutate: [...covered.strykerMutate, "bin/**/*.ts"] }),
+      [],
+    );
+    assert.deepEqual(gaps({ knipProject: without(covered.knipProject, "bin") }), [
+      { dir: "bin", check: "knip" },
+    ]);
+    assert.deepEqual(gaps({ tsconfigInclude: without(covered.tsconfigInclude, "bin") }), [
+      { dir: "bin", check: "tsconfig" },
+    ]);
   });
 
   it("名前の先頭だけが同じディレクトリは、対象に入っているとみなさない", () => {
@@ -113,5 +138,56 @@ describe("findLayoutGaps", () => {
       gaps({ duplicateScript: covered.duplicateScript.replace(" core ", " core-old ") }),
       [{ dir: "core", check: "jscpd" }],
     );
+  });
+});
+
+describe("layoutInput", () => {
+  const configs = {
+    tsconfig: { include: ["core/**/*.ts"] },
+    knip: { project: ["core/**/*.ts"] },
+    stryker: { mutate: ["core/**/*.ts"] },
+    scripts: { test: "t", "lint:duplicate": "d", typecheck: "c" },
+  };
+
+  it("直下のディレクトリの .ts と tsconfig.json を数え、設定の値をそのまま渡す", () => {
+    const input = layoutInput(
+      [
+        "core/page.ts",
+        "core/sub/a.ts",
+        "admin-ui/tsconfig.json",
+        "admin-ui/api.ts",
+        "admin-ui/nested/tsconfig.json",
+        "docs/adr/0001.md",
+        "top.ts",
+        "tools/stryker-message-ignorer.js",
+        "docs/old.ts.bak",
+        "docs/tsconfig.json.bak",
+        "core/sub/tsconfig.json",
+      ],
+      configs,
+    );
+    assert.deepEqual([...input.dirsWithTs].sort(), ["admin-ui", "core"]);
+    assert.deepEqual(input.dirsWithTsconfig, ["admin-ui"]);
+    assert.deepEqual(input.tsconfigInclude, ["core/**/*.ts"]);
+    assert.deepEqual(input.knipProject, ["core/**/*.ts"]);
+    assert.deepEqual(input.strykerMutate, ["core/**/*.ts"]);
+    assert.equal(input.testScript, "t");
+    assert.equal(input.duplicateScript, "d");
+    assert.equal(input.typecheckScript, "c");
+  });
+
+  it("設定の値がなければ、空として扱い、検査の漏れとして見つける", () => {
+    const input = layoutInput(["core/page.ts"], {
+      tsconfig: {},
+      knip: {},
+      stryker: {},
+      scripts: {},
+    });
+    assert.deepEqual([input.tsconfigInclude, input.knipProject, input.strykerMutate], [[], [], []]);
+    assert.deepEqual(
+      [input.testScript, input.duplicateScript, input.typecheckScript],
+      ["", "", ""],
+    );
+    assert.ok(findLayoutGaps(input).some((g) => g.dir === "core" && g.check === "tsconfig"));
   });
 });

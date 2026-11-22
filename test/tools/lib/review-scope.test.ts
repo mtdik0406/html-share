@@ -40,6 +40,8 @@ describe("guardedFiles", () => {
     "package.json",
     "tsconfig.json",
     "admin-ui/tsconfig.json",
+    "functions/tsconfig.json",
+    "admin-ui/nested/tsconfig.json",
     "pnpm-workspace.yaml",
     ".nvmrc",
     ".githooks/pre-commit",
@@ -62,6 +64,8 @@ describe("guardedFiles", () => {
     "test/cli/lib/embed.test.ts",
     "README.md",
     "CLAUDE.md.bak",
+    "functions/tsconfig.json.bak",
+    "functions/mytsconfig.json",
   ]) {
     it(`${file} は拾わない`, () => {
       assert.deepEqual(guardedFiles([file]), []);
