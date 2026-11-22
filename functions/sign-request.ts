@@ -1,7 +1,7 @@
-import type { SignResult } from "../../core/api-types.js";
-import { validateLifetimeMs } from "../../core/lifetime.js";
-import { assertSlug } from "../../core/page.js";
-import { signPageUrl } from "../../core/signed-url.js";
+import type { SignResult } from "../core/api-types.js";
+import { validateLifetimeMs } from "../core/lifetime.js";
+import { assertSlug } from "../core/page.js";
+import { signPageUrl } from "../core/signed-url.js";
 
 export interface SignHandlerDeps {
   distributionDomainName: string;

@@ -3,7 +3,7 @@ import { SSMClient } from "@aws-sdk/client-ssm";
 import { ADMIN_FUNCTION_ENV } from "../../core/names.js";
 import { loadSigningKey } from "../../core/signing-key.js";
 import { env } from "../env.js";
-import { cacheUntilFailure } from "../sign/sign-request.js";
+import { cacheUntilFailure } from "../sign-request.js";
 import { createConfigLoader, createPostForm } from "./auth-io.js";
 import { createAuthHandler } from "./auth-request.js";
 

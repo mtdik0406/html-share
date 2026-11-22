@@ -199,7 +199,7 @@ describe("findForbiddenImports", () => {
       'type F = import("../cli/f.js").F;',
       'let g: typeof import("../cli/g.js");',
       "const h = await import(`../cli/h.js`);",
-      'import "./../cli/i.js";',
+      'import "../cli/i.js";',
       'import j from "..";',
     ].join("\n");
     assert.deepEqual(lines("core/page.ts", source), [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);

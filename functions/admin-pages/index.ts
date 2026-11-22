@@ -6,7 +6,7 @@ import { PAGES_PREFIX } from "../../core/page.js";
 import { listRemote } from "../../core/s3-sync.js";
 import { loadSigningKey } from "../../core/signing-key.js";
 import { env } from "../env.js";
-import { createSignHandler } from "../sign/sign-request.js";
+import { createSignHandler } from "../sign-request.js";
 import { pageEntries } from "./list-pages.js";
 import { createPagesHandler } from "./pages-request.js";
 
