@@ -1,8 +1,10 @@
 import {
+  CopyObjectCommand,
   DeleteObjectsCommand,
   type DeleteObjectsCommandOutput,
   PutObjectCommand,
 } from "@aws-sdk/client-s3";
+import { archiveKeyOf } from "../../core/page.js";
 import type { S3Sender } from "../../core/remote-pages.js";
 import type { SyncPlan } from "./sync-plan.js";
 
@@ -31,6 +33,18 @@ export async function applyPlan(
         // 付けないと application/octet-stream になり、ブラウザが表示せずにダウンロードする。
         // charset を付けないと、日本語が化けることがある。
         ContentType: "text/html; charset=utf-8",
+      }),
+    );
+  }
+
+  // すべてを保管庫に写してから消す。途中で失敗しても、保管庫に入らないまま消えたページを出さないため（ADR 20）。
+  for (const key of plan.remove) {
+    await s3.send(
+      new CopyObjectCommand({
+        Bucket: bucket,
+        // CopySource は URL エンコードした「バケット/キー」で渡す。
+        CopySource: `${bucket}/${key.split("/").map(encodeURIComponent).join("/")}`,
+        Key: archiveKeyOf(key),
       }),
     );
   }

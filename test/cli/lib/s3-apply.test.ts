@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DeleteObjectsCommand, PutObjectCommand } from "@aws-sdk/client-s3";
+import { CopyObjectCommand, DeleteObjectsCommand, PutObjectCommand } from "@aws-sdk/client-s3";
 import { applyPlan } from "../../../cli/lib/s3-apply.js";
 import type { SyncPlan } from "../../../cli/lib/sync-plan.js";
 import { fakeSender } from "../../helpers/fake-sender.js";
@@ -32,7 +32,12 @@ describe("applyPlan", () => {
     );
 
     const kinds = sent.map((c) => c.constructor);
-    assert.deepEqual(kinds, [PutObjectCommand, PutObjectCommand, DeleteObjectsCommand]);
+    assert.deepEqual(kinds, [
+      PutObjectCommand,
+      PutObjectCommand,
+      CopyObjectCommand,
+      DeleteObjectsCommand,
+    ]);
     const puts = sent.filter((c): c is PutObjectCommand => c instanceof PutObjectCommand);
     assert.deepEqual(
       puts.map((c) => [c.input.Bucket, c.input.Key, String(c.input.Body)]),
@@ -95,5 +100,43 @@ describe("applyPlan", () => {
     const { client: s3, sent } = fakeSender();
     await assert.rejects(applyPlan(s3, "bucket", plan({ add: ["k"] }), new Map()));
     assert.equal(sent.length, 0);
+  });
+
+  it("消す前に、消すキーをすべて保管庫にコピーする（ADR 20）", async () => {
+    const { client: s3, sent } = fakeSender();
+    await applyPlan(
+      s3,
+      "bucket",
+      plan({ remove: ["pages/a/index.html", "pages/b c/index.html"] }),
+      new Map(),
+    );
+    const firstDelete = sent.findIndex((c) => c instanceof DeleteObjectsCommand);
+    const copies = sent.filter((c): c is CopyObjectCommand => c instanceof CopyObjectCommand);
+    assert.deepEqual(
+      copies.map((c) => [c.input.Bucket, c.input.CopySource, c.input.Key]),
+      [
+        ["bucket", "bucket/pages/a/index.html", "archive/a/index.html"],
+        ["bucket", "bucket/pages/b%20c/index.html", "archive/b c/index.html"],
+      ],
+    );
+    assert.ok(copies.every((c) => sent.indexOf(c) < firstDelete));
+  });
+
+  it("コピーに失敗したら、何も消さない", async () => {
+    const { client: s3, sent } = fakeSender((c) => {
+      if (c instanceof CopyObjectCommand && c.input.Key === "archive/b/index.html") {
+        throw new Error("AccessDenied");
+      }
+      return {};
+    });
+    await assert.rejects(
+      applyPlan(
+        s3,
+        "bucket",
+        plan({ remove: ["pages/a/index.html", "pages/b/index.html"] }),
+        new Map(),
+      ),
+    );
+    assert.ok(!sent.some((c) => c instanceof DeleteObjectsCommand));
   });
 });

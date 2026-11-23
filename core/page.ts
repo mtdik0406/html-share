@@ -25,3 +25,13 @@ export function slugOfKey(key: string): string | undefined {
   const slug = key.slice(PAGES_PREFIX.length, -"/index.html".length);
   return key === pageKey(slug) && SLUG_PATTERN.test(slug) ? slug : undefined;
 }
+
+/** 公開をやめたページを残す場所。PAGES_PREFIX の外に置き、同期・一覧・署名の対象にしない（ADR 20）。 */
+const ARCHIVE_PREFIX = "archive/";
+
+export function archiveKeyOf(key: string): string {
+  if (!key.startsWith(PAGES_PREFIX)) {
+    throw new Error(`同期が扱う接頭辞の外のキーは、保管庫に移せません: ${key}`);
+  }
+  return `${ARCHIVE_PREFIX}${key.slice(PAGES_PREFIX.length)}`;
+}

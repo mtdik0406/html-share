@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { assertSlug, PAGES_PREFIX, pageKey, pageUrl } from "../../core/page.js";
+import { archiveKeyOf, assertSlug, PAGES_PREFIX, pageKey, pageUrl } from "../../core/page.js";
 
 describe("assertSlug", () => {
   for (const [label, slug] of [
@@ -50,5 +50,19 @@ describe("pageKey / pageUrl", () => {
 
   it("slug が違えばキーも違う", () => {
     assert.notEqual(pageKey("page-a"), pageKey("page-b"));
+  });
+});
+
+describe("archiveKeyOf", () => {
+  it("pages/ の下のキーを、archive/ の下の同じ位置に対応させる", () => {
+    assert.equal(archiveKeyOf(pageKey("a")), "archive/a/index.html");
+  });
+
+  it("保管庫のキーは、同期が扱う接頭辞の外にある（中にあると、次の同期が消す）", () => {
+    assert.ok(!archiveKeyOf(pageKey("a")).startsWith(PAGES_PREFIX));
+  });
+
+  it("pages/ の外のキーはエラー", () => {
+    assert.throws(() => archiveKeyOf("other/a/index.html"));
   });
 });
