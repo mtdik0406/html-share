@@ -61,9 +61,11 @@ export async function runSync(
     assertSafeToApply(plan, remote.length, { allowMassDelete: options.allowMassDelete });
     if (options.dryRun) return plan;
 
-    await applyPlan(deps.s3, bucket, plan, bodies);
+    // 消す前に記録する。消す途中で失敗しても、S3 では消えていることがあり、
+    // 次の同期ではそのページが一覧に出ず、二度と記録できないため（ADR 21）。
     const removedSlugs = plan.remove.flatMap((key) => slugOfKey(key) ?? []);
     writeRetired(deps.retiredPath, recordRetired(retired, removedSlugs, now));
+    await applyPlan(deps.s3, bucket, plan, bodies);
     return plan;
   } finally {
     release();

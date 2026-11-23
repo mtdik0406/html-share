@@ -268,3 +268,22 @@ describe("runSync: 保持期限（ADR 20）", () => {
     await assert.rejects(syncAfterExpiry(live("a"), live("old")));
   });
 });
+
+describe("runSync: 消す途中で失敗したとき", () => {
+  it("消せなかった応答のあとも、取り下げた slug として記録する（S3 では消えていることがある）", async () => {
+    const failing: S3Sender = {
+      async send(command) {
+        if (command instanceof ListObjectsV2Command) {
+          return { Contents: [{ Key: pageKey("old"), ETag: '"x"' }], IsTruncated: false };
+        }
+        if (command instanceof DeleteObjectsCommand) throw new Error("network");
+        return {};
+      },
+    };
+    const d = deps(failing);
+    await assert.rejects(runSync(config(writePage("keep")), apply, d.deps));
+
+    const next = deps(fakeS3().s3, { lockDir: d.deps.lockDir, retiredPath: d.deps.retiredPath });
+    await assert.rejects(runSync(config(writePage("keep"), writePage("old")), dryRun, next.deps));
+  });
+});
