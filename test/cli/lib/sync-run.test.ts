@@ -227,16 +227,26 @@ describe("runSync: 保持期限（ADR 20）", () => {
     await assert.doesNotReject(runSync(config(live("a"), gone), apply, deps(s3).deps));
   });
 
-  it("期限を過ぎたページも、消しすぎの歯止めに数える", async () => {
-    const { s3, writes } = fakeS3({
-      [pageKey("a")]: "x",
-      [pageKey("old1")]: "x",
-      [pageKey("old2")]: "x",
+  describe("期限を過ぎたページも、消しすぎの歯止めに数える", () => {
+    const remote = { [pageKey("a")]: "x", [pageKey("old1")]: "x", [pageKey("old2")]: "x" };
+    const pages = () => config(live("a"), expired("old1"), expired("old2"));
+
+    it("--allow-mass-delete がなければ、何も書かずに失敗する", async () => {
+      const { s3, writes } = fakeS3(remote);
+      await assert.rejects(runSync(pages(), apply, deps(s3).deps));
+      assert.deepEqual(writes(), []);
     });
-    await assert.rejects(
-      runSync(config(live("a"), expired("old1"), expired("old2")), apply, deps(s3).deps),
-    );
-    assert.deepEqual(writes(), []);
+
+    it("--allow-mass-delete を付ければ、保管庫へ移す", async () => {
+      const { s3, sent } = fakeS3(remote);
+      await runSync(pages(), { dryRun: false, allowMassDelete: true }, deps(s3).deps);
+      const copies = sent.filter((c): c is CopyObjectCommand => c instanceof CopyObjectCommand);
+      assert.deepEqual(
+        copies.map((c) => c.input.Key),
+        ["archive/old1/index.html", "archive/old2/index.html"],
+      );
+      assert.ok(sent.some((c) => c instanceof DeleteObjectsCommand));
+    });
   });
 
   /** 期限を過ぎた old を保管庫へ移したあと、同じ記録で pages を同期する。 */
