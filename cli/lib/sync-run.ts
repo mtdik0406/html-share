@@ -6,6 +6,7 @@ import { listRemote, type S3Sender } from "../../core/remote-pages.js";
 import type { SyncConfig } from "./config.js";
 import { embedPage } from "./embed.js";
 import { acquireLock } from "./lock.js";
+import { isExpired } from "./retention.js";
 import { assertNoRecentReuse, parseRetired, type RetiredSlugs, recordRetired } from "./retired.js";
 import { applyPlan } from "./s3-apply.js";
 import { assertSafeToApply, type LocalObject, planSync, type SyncPlan } from "./sync-plan.js";
@@ -33,13 +34,20 @@ export async function runSync(
   // 一覧を読んでから消すまでの間に、別の同期が割り込まないようにする。
   const release = acquireLock(deps.lockDir);
   try {
+    const now = deps.now();
     const retired = readRetired(deps.retiredPath);
+    // 期限を過ぎたページは、設定にないページと同じく置かない。元のファイルも読まない（ADR 20）。
+    const pages = config.pages.filter((page) => {
+      const expired = isExpired(page.retainUntil, now);
+      if (expired) deps.log(`expired   ${page.slug}: ${page.retainUntil}`);
+      return !expired;
+    });
     assertNoRecentReuse(
-      config.pages.map((p) => p.slug),
+      pages.map((p) => p.slug),
       retired,
-      deps.now(),
+      now,
     );
-    const { local, bodies } = embedPages(config, deps.log);
+    const { local, bodies } = embedPages({ ...config, pages }, deps.log);
 
     const bucket = await deps.bucketName();
     const remote = await listRemote(deps.s3, bucket, PAGES_PREFIX);
@@ -47,7 +55,7 @@ export async function runSync(
 
     for (const key of plan.add) deps.log(`add       ${key}`);
     for (const key of plan.update) deps.log(`update    ${key}`);
-    for (const key of plan.remove) deps.log(`delete    ${key}`);
+    for (const key of plan.remove) deps.log(`archive   ${key}`);
     deps.log(`unchanged ${plan.unchanged.length} ページ`);
 
     assertSafeToApply(plan, remote.length, { allowMassDelete: options.allowMassDelete });
@@ -55,7 +63,7 @@ export async function runSync(
 
     await applyPlan(deps.s3, bucket, plan, bodies);
     const removedSlugs = plan.remove.flatMap((key) => slugOfKey(key) ?? []);
-    writeRetired(deps.retiredPath, recordRetired(retired, removedSlugs, deps.now()));
+    writeRetired(deps.retiredPath, recordRetired(retired, removedSlugs, now));
     return plan;
   } finally {
     release();

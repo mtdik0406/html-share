@@ -51,6 +51,6 @@ await runCli(async () => {
   console.log(
     dryRun
       ? "--dry-run なので、S3 は変えていません"
-      : `完了: add ${plan.add.length}, update ${plan.update.length}, delete ${plan.remove.length}`,
+      : `完了: add ${plan.add.length}, update ${plan.update.length}, archive ${plan.remove.length}`,
   );
 });

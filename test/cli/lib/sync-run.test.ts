@@ -187,3 +187,59 @@ describe("runSync: 取り下げた slug の再利用", () => {
     );
   });
 });
+
+describe("runSync: 保持期限（ADR 20）", () => {
+  const expired = (slug: string) => ({ ...writePage(slug), retainUntil: "2026-11-01" });
+  const live = (slug: string) => ({ ...writePage(slug), retainUntil: "2026-12-31" });
+
+  it("期限を過ぎたページは置かず、S3 にあれば公開をやめる", async () => {
+    const { s3, sent } = fakeS3({ [pageKey("old")]: "x" });
+    const plan = await runSync(config(live("a"), expired("old")), apply, deps(s3).deps);
+    assert.deepEqual(plan.add, [pageKey("a")]);
+    assert.deepEqual(plan.remove, [pageKey("old")]);
+    const puts = sent.filter((c): c is PutObjectCommand => c instanceof PutObjectCommand);
+    assert.deepEqual(
+      puts.map((c) => c.input.Key),
+      [pageKey("a")],
+    );
+  });
+
+  it("期限を過ぎて S3 にもないページは、置き直さない", async () => {
+    const { s3 } = fakeS3();
+    const plan = await runSync(config(live("a"), expired("old")), apply, deps(s3).deps);
+    assert.deepEqual(plan.add, [pageKey("a")]);
+    assert.deepEqual(plan.remove, []);
+  });
+
+  it("期限を過ぎたページの元のファイルは読まない（消していても止まらない）", async () => {
+    const { s3 } = fakeS3();
+    const gone = { slug: "old", source: join(root, "missing.html"), retainUntil: "2026-11-01" };
+    await assert.doesNotReject(runSync(config(live("a"), gone), apply, deps(s3).deps));
+  });
+
+  it("期限を過ぎて公開をやめた slug を記録する", async () => {
+    const { s3 } = fakeS3({ [pageKey("old")]: "x" });
+    const d = deps(s3);
+    await runSync(config(live("a"), expired("old")), apply, d.deps);
+    assert.ok(readFileSync(d.deps.retiredPath, "utf8").includes("old"));
+  });
+
+  /** 期限を過ぎた old を保管庫へ移したあと、同じ記録で pages を同期する。 */
+  async function syncAfterExpiry(...pages: { slug: string; source: string }[]) {
+    const d = deps(fakeS3({ [pageKey("old")]: "x" }).s3);
+    await runSync(config(live("a"), expired("old")), apply, d.deps);
+    const next = deps(fakeS3({ [pageKey("a")]: "x" }).s3, {
+      lockDir: d.deps.lockDir,
+      retiredPath: d.deps.retiredPath,
+    });
+    return runSync(config(...pages), apply, next.deps);
+  }
+
+  it("期限を過ぎて設定に残っているページは、取り下げた slug の確かめで止めない", async () => {
+    await assert.doesNotReject(syncAfterExpiry(live("a"), expired("old")));
+  });
+
+  it("期限を延ばしても、取り下げてから 30 日は同じ slug で戻せない", async () => {
+    await assert.rejects(syncAfterExpiry(live("a"), live("old")));
+  });
+});
