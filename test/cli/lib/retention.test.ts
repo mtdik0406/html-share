@@ -22,4 +22,9 @@ describe("isExpired", () => {
   it("前の日は期限切れにならない", () => {
     assert.equal(isExpired("2026-12-31", local(2026, 12, 30, 23, 59)), false);
   });
+
+  it("1 桁の月と日でも、日付の順に比べる", () => {
+    assert.equal(isExpired("2026-01-10", local(2026, 1, 5)), false);
+    assert.equal(isExpired("2026-10-01", local(2026, 9, 30)), false);
+  });
 });
