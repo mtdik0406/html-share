@@ -50,6 +50,7 @@ pnpm run sign <slug> --minutes 1    # Lambda で署名できることを確か�
   - ホーム・このリポジトリ・それらの親は指定できない
   - `.` で始まる階層・`node_modules` の中のファイルと、ハードリンクは使わない
 - `pages`：`slug` は URL のパスになる（英小文字・数字・ハイフン、64 文字以内）。`source` は元の HTML
+- `retainUntil`（任意）：`YYYY-MM-DD`。その日の終わり（手元の時刻帯）まで公開し、過ぎたら `sync` が公開をやめる（[ADR 20](docs/adr/0020-retention-and-archive.md)）。書かなければ期限はない
 - 相対パスは設定ファイルのあるディレクトリから、`~/` はホームから解決する
 
 ```sh
@@ -61,7 +62,9 @@ pnpm run sync --config path/to/config.json
 `sync` は設定を正として、ページを置き、置き直し、消す（[ADR 2](docs/adr/0002-sync-deletes-unlisted-pages.md)）。
 
 - **中身が変わったページを置き直すと、配った URL で見える中身も変わる**
-- **設定に無いページは S3 から消す。** その URL はすべて 403 になる
+- **設定に無いページと、`retainUntil` を過ぎたページは公開をやめる。** その URL はすべて 403 になる
+  - 公開をやめたページは、バケットの `archive/<slug>/index.html` に移り、90 日後に消える。閲覧用の URL からは読めない
+  - 期限の確かめは `sync` を実行したときだけ行う。実行しなければ、期限を過ぎても公開されたまま
 - **取り下げた slug は 30 日使えない**（[ADR 3](docs/adr/0003-block-reuse-of-retired-slugs.md)）
 - 埋め込んだ手元のファイルを、ページごとに表示する。意図しないファイルが入っていないか `--dry-run` で確かめる
 - 2 ページ以上、かつ公開中の 2 割以上を一度に消すときは止まる。意図どおりなら `--allow-mass-delete` を付ける
