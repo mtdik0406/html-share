@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { CfnOutput, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
+import { CfnOutput, Duration, RemovalPolicy, Stack, type StackProps } from "aws-cdk-lib";
 import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
 import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import * as iam from "aws-cdk-lib/aws-iam";
@@ -11,6 +11,7 @@ import {
   SIGN_FUNCTION_ENV,
   signingKeyParameterName,
 } from "../core/names.js";
+import { ARCHIVE_PREFIX } from "../core/page.js";
 import { AdminConsole, type AdminConsoleProps } from "./admin-console.js";
 import { nodeFunction, parameterArn } from "./node-function.js";
 import { commonHeaders } from "./response-headers.js";
@@ -34,6 +35,8 @@ export class HtmlShareStack extends Stack {
       // autoDeleteObjects がないと、空でないバケットは destroy で消せない。削除用の Lambda とロールが追加で作られる。
       removalPolicy: RemovalPolicy.DESTROY,
       autoDeleteObjects: true,
+      // 公開をやめたページは、コピーで作り直された日から数えて 90 日残す（ADR 20）。pages/ には期限を付けない。
+      lifecycleRules: [{ prefix: ARCHIVE_PREFIX, expiration: Duration.days(90) }],
     });
 
     // Distribution は鍵を KeyGroup 単位で信頼する。鍵を入れ替えるときは、新旧を同じグループに並べて移行する。

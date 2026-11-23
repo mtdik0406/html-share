@@ -27,7 +27,7 @@ export function slugOfKey(key: string): string | undefined {
 }
 
 /** 公開をやめたページを残す場所。PAGES_PREFIX の外に置き、同期・一覧・署名の対象にしない（ADR 20）。 */
-const ARCHIVE_PREFIX = "archive/";
+export const ARCHIVE_PREFIX = "archive/";
 
 export function archiveKeyOf(key: string): string {
   if (!key.startsWith(PAGES_PREFIX)) {

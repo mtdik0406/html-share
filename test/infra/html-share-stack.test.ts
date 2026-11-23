@@ -7,6 +7,7 @@ import { App } from "aws-cdk-lib";
 import { Template } from "aws-cdk-lib/assertions";
 import { MIME_TYPES } from "../../cli/lib/embed.js";
 import { OUTPUT_KEYS, SIGN_FUNCTION_ENV, signingKeyParameterName } from "../../core/names.js";
+import { ARCHIVE_PREFIX } from "../../core/page.js";
 import { HtmlShareStack } from "../../infra/html-share-stack.js";
 import { TEST_ADMIN } from "../helpers/stack.js";
 import { asArray, type Json, refsIn, roleStatements } from "../helpers/template.js";
@@ -99,6 +100,24 @@ describe("HtmlShareStack", () => {
         RestrictPublicBuckets: true,
       },
     });
+  });
+
+  it("保管庫（archive/）のページは 90 日で消え、ほかのオブジェクトはライフサイクルで消さない（ADR 20）", () => {
+    const rules = Object.values(resourcesOf("AWS::S3::Bucket")).flatMap(
+      (b) => b.Properties.LifecycleConfiguration?.Rules ?? [],
+    );
+    // Prefix は Rule の直下か Filter の中に書ける。どちらもなければバケット全体に効く。
+    const prefixOf = (rule: Json): string => rule.Prefix ?? rule.Filter?.Prefix ?? "";
+    assert.ok(
+      rules.some(
+        (r) =>
+          r.Status === "Enabled" && prefixOf(r) === ARCHIVE_PREFIX && r.ExpirationInDays === 90,
+      ),
+      "archive/ を 90 日で消す規則がない",
+    );
+    for (const rule of rules) {
+      assert.equal(prefixOf(rule), ARCHIVE_PREFIX, "archive/ の外に効く規則がある");
+    }
   });
 
   it("S3 は HTTPS 以外の要求を拒否する", () => {
