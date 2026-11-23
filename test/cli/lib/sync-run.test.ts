@@ -4,7 +4,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { afterEach, beforeEach, describe, it } from "node:test";
-import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  CopyObjectCommand,
+  DeleteObjectsCommand,
+  ListObjectsV2Command,
+  PutObjectCommand,
+} from "@aws-sdk/client-s3";
 import type { SyncConfig } from "../../../cli/lib/config.js";
 import { embedPage } from "../../../cli/lib/embed.js";
 import { runSync, type SyncDeps } from "../../../cli/lib/sync-run.js";
@@ -54,7 +59,12 @@ function fakeS3(remote: Record<string, string> = {}) {
     },
   };
   const writes = () =>
-    sent.filter((c) => c instanceof PutObjectCommand || c instanceof DeleteObjectsCommand);
+    sent.filter(
+      (c) =>
+        c instanceof PutObjectCommand ||
+        c instanceof CopyObjectCommand ||
+        c instanceof DeleteObjectsCommand,
+    );
   return { s3, sent, writes };
 }
 
@@ -103,7 +113,7 @@ describe("runSync", () => {
     await runSync(config(writePage("a")), apply, deps(s3).deps);
     assert.deepEqual(
       writes().map((c) => c.constructor),
-      [PutObjectCommand, DeleteObjectsCommand],
+      [PutObjectCommand, CopyObjectCommand, DeleteObjectsCommand],
     );
   });
 
@@ -217,11 +227,16 @@ describe("runSync: 保持期限（ADR 20）", () => {
     await assert.doesNotReject(runSync(config(live("a"), gone), apply, deps(s3).deps));
   });
 
-  it("期限を過ぎて公開をやめた slug を記録する", async () => {
-    const { s3 } = fakeS3({ [pageKey("old")]: "x" });
-    const d = deps(s3);
-    await runSync(config(live("a"), expired("old")), apply, d.deps);
-    assert.ok(readFileSync(d.deps.retiredPath, "utf8").includes("old"));
+  it("期限を過ぎたページも、消しすぎの歯止めに数える", async () => {
+    const { s3, writes } = fakeS3({
+      [pageKey("a")]: "x",
+      [pageKey("old1")]: "x",
+      [pageKey("old2")]: "x",
+    });
+    await assert.rejects(
+      runSync(config(live("a"), expired("old1"), expired("old2")), apply, deps(s3).deps),
+    );
+    assert.deepEqual(writes(), []);
   });
 
   /** 期限を過ぎた old を保管庫へ移したあと、同じ記録で pages を同期する。 */
