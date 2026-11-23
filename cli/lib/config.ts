@@ -1,10 +1,13 @@
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
 import { assertSlug } from "../../core/page.js";
+import { assertRetainUntil } from "./retention.js";
 
 interface PageEntry {
   slug: string;
   /** 絶対パス */
   source: string;
+  /** YYYY-MM-DD。この日を過ぎたら公開をやめる（ADR 20）。 */
+  retainUntil?: string;
 }
 
 export interface SyncConfig {
@@ -50,12 +53,15 @@ export function parseConfig(
   if (!Array.isArray(root.pages)) throw new Error("pages は配列にしてください");
   const seen = new Set<string>();
   const pages = root.pages.map((p, i): PageEntry => {
-    const page = asObject(p, `pages[${i}]`, ["slug", "source"]);
+    const page = asObject(p, `pages[${i}]`, ["slug", "source", "retainUntil"]);
     const slug = asString(page.slug, `pages[${i}].slug`);
     assertSlug(slug);
     if (seen.has(slug)) throw new Error(`slug が重複しています: ${slug}`);
     seen.add(slug);
-    return { slug, source: toPath(asString(page.source, `pages[${i}].source`)) };
+    const source = toPath(asString(page.source, `pages[${i}].source`));
+    if (page.retainUntil === undefined) return { slug, source };
+    assertRetainUntil(page.retainUntil, `pages[${i}].retainUntil`);
+    return { slug, source, retainUntil: page.retainUntil };
   });
 
   return { roots, pages };

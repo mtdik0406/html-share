@@ -72,3 +72,38 @@ describe("parseConfig", () => {
     });
   }
 });
+
+describe("parseConfig: retainUntil", () => {
+  const parsePage = (page: Record<string, unknown>) =>
+    parse({ roots: ["."], pages: [{ slug: "a", source: "a.html", ...page }] }).pages[0];
+
+  it("書いた日付をそのまま持つ", () => {
+    assert.equal(parsePage({ retainUntil: "2026-12-31" })?.retainUntil, "2026-12-31");
+  });
+
+  it("書かなければ期限はない", () => {
+    assert.equal(parsePage({})?.retainUntil, undefined);
+  });
+
+  for (const value of ["2024-02-29", "2026-01-01"]) {
+    it(`${value} は通る（実在する日付）`, () => {
+      assert.doesNotThrow(() => parsePage({ retainUntil: value }));
+    });
+  }
+
+  for (const value of [
+    "2026-02-30",
+    "2025-02-29",
+    "2026-13-01",
+    "2026-00-10",
+    "2026-1-1",
+    "2026-12-31T00:00:00Z",
+    " 2026-12-31",
+    "",
+    20261231,
+  ]) {
+    it(`${JSON.stringify(value)} はエラー`, () => {
+      assert.throws(() => parsePage({ retainUntil: value }));
+    });
+  }
+});
